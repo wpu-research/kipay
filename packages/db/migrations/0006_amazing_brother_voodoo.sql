@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "merchants_tenant_name_unique" ON "merchants" USING btree ("tenant_id","merchant_name");

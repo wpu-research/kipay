@@ -1,0 +1,224 @@
+{
+  "main": {
+    "id": "5293b019dbc63888",
+    "type": "split",
+    "children": [
+      {
+        "id": "3b923221bfaad63f",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b3b94a76f3247d76",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "notes.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "notes"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "478e3a13f95d4a50",
+    "type": "split",
+    "children": [
+      {
+        "id": "3932c6d21c1c0733",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "21db76e467220639",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "276c044f3c46ee6d",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "611cc9b14f64a190",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "07e76972e5507082",
+    "type": "split",
+    "children": [
+      {
+        "id": "d1bb4778e6a9e327",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "cd7d9976c9691fa5",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "_bmad-output/brainstorming/tenant-presentation.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for tenant-presentation"
+            }
+          },
+          {
+            "id": "d1f611778f482cbf",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "_bmad-output/brainstorming/tenant-presentation.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from tenant-presentation"
+            }
+          },
+          {
+            "id": "4b15aa1acb6e5d30",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "716c9df3b0f2ed2f",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "fcdd98d0b1e71183",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "_bmad-output/brainstorming/tenant-presentation.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of tenant-presentation"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "b3b94a76f3247d76",
+  "lastOpenFiles": [
+    "_bmad-output/planning-artifacts/epics.md",
+    "apps/web/src/features/exchange-rates/ExchangeRateHistory.tsx",
+    "apps/web/src/features/reports/ExportSection.tsx",
+    "apps/api/src/features/exchange-rates/exchange-rate.routes.test.ts.tmp.19312.1774295177127",
+    "apps/api/src/features/exchange-rates/exchange-rate.routes.ts.tmp.19312.1774295038960",
+    "packages/db/dist/schema/export-jobs.d.ts",
+    "packages/db/dist/schema/export-jobs.d.ts.map",
+    "packages/db/dist/schema/export-jobs.js",
+    "apps/api/src/jobs/report-export.ts",
+    "packages/db/migrations/0019_steady_phil_sheldon.sql",
+    "packages/db/migrations/meta/0019_snapshot.json",
+    "_bmad-output/implementation-artifacts/7-3-csvexcel-export-kur-gecmisi.md",
+    "_bmad-output/implementation-artifacts/7-2-işlem-raporları.md",
+    "_vault/ODEME_ENGINE_BMAD.md",
+    "_bmad-output/implementation-artifacts/6-2-uyarı-kuralları-motoru.md",
+    "_bmad-output/implementation-artifacts/6-1-oyuncu-engelleme.md",
+    "_bmad-output/implementation-artifacts/5-5-callback-yönetimi-sandbox.md",
+    "_bmad-output/implementation-artifacts/5-4-callback-gönderim-retry-sistemi.md",
+    "_bmad-output/implementation-artifacts/5-3-işlem-sorgulama-ödeme-yöntemleri-kur-api.md",
+    "_vault/ENGINE_INTEGRATION_NOTES.md",
+    "_bmad-output/implementation-artifacts/5-2-deposit-withdrawal-api.md",
+    "_bmad-output/implementation-artifacts/5-1-merchant-api-güvenlik-altyapısı-hmac-nonce.md",
+    "_bmad-output/implementation-artifacts/4-5-flagged-işlem-akışı.md",
+    "_bmad-output/implementation-artifacts/review-spec-2-3.md",
+    "_bmad-output/implementation-artifacts/4-4-işlem-onay-red-ve-yorum.md",
+    "AGENTS.md",
+    "_bmad-output/implementation-artifacts/4-3-finans-claim-mekanizması.md",
+    "_bmad-output/implementation-artifacts/4-2-sse-gerçek-zamanlı-bildirimler.md",
+    "_bmad-output/implementation-artifacts/4-1-routing-engine-işlem-başlatma.md",
+    "_bmad-output/implementation-artifacts/3-5-ödeme-hesabı-yönetimi-günlük-limit.md",
+    "_bmad-output/implementation-artifacts/3-4-finans-grubu-yonetimi.md",
+    "_bmad-output/implementation-artifacts/3-3-odeme-saglayicisi-yonetimi.md",
+    "_bmad-output/implementation-artifacts/3-2-merchant-api-key-ip-whitelist-yonetimi.md",
+    "_bmad-output/implementation-artifacts/3-1-merchant-yonetimi.md",
+    "_bmad-output/planning-artifacts/prd-validation-report.md"
+  ]
+}

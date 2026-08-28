@@ -1,0 +1,21 @@
+# ══ Railway → Variables sekmesine gir ══
+# Zorunlular (config/env.ts bunları doğruluyor, eksikse API açılmaz):
+
+DATABASE_URL=<Supabase Settings→Database→Connection string→URI>
+JWT_SECRET=<openssl rand -hex 32>
+JWT_REFRESH_SECRET=<openssl rand -hex 32>
+JWT_TEMP_SECRET=<openssl rand -hex 32>
+TOTP_ENCRYPTION_KEY=<openssl rand -hex 32>        # tam 64 hex karakter
+MERCHANT_SECRET_ENC_KEY=<openssl rand -hex 32>    # keyId-only auth için — KAYBETME
+
+# Opsiyonel ama önerilen:
+COOKIE_SECRET=<openssl rand -hex 32>
+NODE_ENV=production
+PORT=3001
+HOST=0.0.0.0
+FRONTEND_URL=<Lovable panelinin URL'i, örn https://kipay-panel.lovable.app>
+TRUSTED_PROXY_IP=            # Railway proxy arkasında; gerekirse Railway'in CIDR'ı
+
+# ══ Railway Settings ══
+# Root Directory: (boş bırak — railway.json root'ta build ediyor)
+# Ya da monorepo tek servis sorun çıkarırsa: Root Directory = apps/api

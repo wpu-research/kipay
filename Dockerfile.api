@@ -1,0 +1,53 @@
+# ─── Base ─────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+
+# ─── Builder ──────────────────────────────────────────────────────────────────
+FROM base AS builder
+WORKDIR /app
+
+# Native modül derlemesi için build araçları (argon2 vb.)
+RUN apk add --no-cache python3 make g++
+
+COPY . .
+RUN pnpm install --frozen-lockfile
+
+# Workspace paketlerini sırayla derle
+RUN pnpm --filter @panel/types build
+RUN pnpm --filter @panel/db build
+RUN pnpm --filter @panel/api build
+
+# ─── Runner ───────────────────────────────────────────────────────────────────
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# node_modules (pnpm virtual store + symlink'ler) — native modüller builder'dan geliyor
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json /app/pnpm-workspace.yaml ./
+
+# Workspace paket node_modules (her paketin kendi symlink'leri)
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=builder /app/packages/types/node_modules ./packages/types/node_modules
+
+# Workspace paket dosyaları (symlink hedefleri)
+COPY --from=builder /app/packages/db/dist ./packages/db/dist
+COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
+COPY --from=builder /app/packages/db/migrations ./packages/db/migrations
+COPY --from=builder /app/packages/types/dist ./packages/types/dist
+COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
+COPY --from=builder /app/packages/config ./packages/config
+
+# API uygulama dosyaları
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+
+# Entrypoint
+COPY --from=builder /app/apps/api/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+EXPOSE 3001
+ENTRYPOINT ["/docker-entrypoint.sh"]

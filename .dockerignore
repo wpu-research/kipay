@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+out
+.next
+.turbo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test & coverage
+coverage
+.vitest-cache
+test-results
+playwright-report
+
+# Logs
+logs
+*.log
+
+# TypeScript
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea
+.vscode
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Misc
+.cache
+tmp
+temp
+_vault
+_bmad-output

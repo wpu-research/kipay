@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PayPanel — Multi Merchant Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--surface:#1a1d27;--border:#2a2d3a;--text:#f1f5f9;--muted:#64748b;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;--orange:#f59e0b}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── LOGIN SCREEN ── */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.login-title{font-size:28px;font-weight:700;margin-bottom:8px;text-align:center}
+.login-sub{font-size:14px;color:var(--muted);margin-bottom:40px;text-align:center}
+.merchant-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:900px;margin-bottom:32px}
+.merchant-card{background:var(--surface);border:2px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all .2s;text-align:center}
+.merchant-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 32px rgba(59,130,246,.15)}
+.merchant-logo{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;margin:0 auto 12px;color:#fff}
+.merchant-name{font-size:17px;font-weight:700;margin-bottom:4px}
+.merchant-domain{font-size:11px;color:var(--muted)}
+
+.user-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:700px}
+.user-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;text-align:center}
+.user-card:hover{border-color:var(--accent);background:#1e2235}
+.user-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;margin:0 auto 8px;color:#fff}
+.user-name{font-size:13px;font-weight:600}
+.user-id{font-size:11px;color:var(--muted);margin-top:2px}
+.back-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:24px}
+.back-btn:hover{border-color:var(--accent);color:var(--text)}
+.sel-merchant-badge{display:flex;align-items:center;gap:10px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px}
+.sel-merchant-logo{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+.sel-merchant-name{font-size:14px;font-weight:600}
+
+/* ── APP ── */
+#app{display:none}
+.nav{display:flex;align-items:center;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:52px}
+.nav-brand{font-size:16px;font-weight:700;margin-right:24px;display:flex;align-items:center;gap:8px}
+.nav-brand-logo{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff}
+.nav-link{padding:0 14px;height:52px;display:flex;align-items:center;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.nav-link:hover,.nav-link.active{color:var(--text);border-bottom-color:var(--accent)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.nav-bal{font-size:13px;font-weight:600;text-align:right}
+.nav-bal small{display:block;font-size:10px;font-weight:400;color:var(--muted)}
+.nav-av-sm{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;cursor:pointer}
+.nav-logout{font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border:1px solid var(--border);border-radius:6px}
+.nav-logout:hover{color:var(--text);border-color:var(--accent)}
+.main{max-width:900px;margin:0 auto;padding:24px 16px 120px}
+.bal-card{background:linear-gradient(135deg,#1e3a5f,#1a2744);border:1px solid #2a4a7a;border-radius:16px;padding:28px 24px;margin-bottom:20px}
+.bal-lbl{font-size:11px;font-weight:600;color:#94b4d4;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.bal-amt{font-size:36px;font-weight:700;color:#fff;margin-bottom:16px}
+.bal-amt span{font-size:16px;opacity:.6;font-weight:500;margin-left:4px}
+.bal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat-box{background:rgba(255,255,255,.07);border-radius:10px;padding:12px}
+.stat-lbl{font-size:10px;color:#94b4d4;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-val{font-size:15px;font-weight:600;color:#fff}
+.act-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.btn-dep{padding:13px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--accent);color:#fff}
+.btn-dep:hover{background:#2563eb}
+.btn-wd{padding:13px;border:1px solid var(--border);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--surface);color:var(--text)}
+.btn-wd:hover{border-color:var(--accent)}
+.sec-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.tx-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tx-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.tx-item:last-child{border-bottom:none}
+.tx-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.tx-icon.in{background:rgba(34,197,94,.12)}.tx-icon.out{background:rgba(239,68,68,.12)}
+.tx-info{flex:1;min-width:0}
+.tx-name{font-size:13px;font-weight:500}
+.tx-time{font-size:11px;color:var(--muted);margin-top:2px}
+.tx-right{text-align:right;flex-shrink:0}
+.tx-amt{font-size:14px;font-weight:600}
+.tx-amt.in{color:var(--green)}.tx-amt.out{color:var(--red)}
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;margin-bottom:2px}
+.badge.pending{background:rgba(245,158,11,.15);color:var(--orange)}
+.badge.approved{background:rgba(34,197,94,.15);color:var(--green)}
+.badge.rejected{background:rgba(239,68,68,.15);color:var(--red)}
+.badge.processing{background:rgba(59,130,246,.15);color:var(--accent)}
+.empty-tx{text-align:center;padding:32px;color:var(--muted);font-size:14px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:420px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.modal-ttl{font-size:15px;font-weight:600}
+.modal-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1}
+.modal-x:hover{color:var(--text)}
+.modal-bdy{flex:1;overflow-y:auto}
+.modal-frame{width:100%;height:520px;border:none;display:block}
+.wd-form{padding:20px}
+.wd-form h3{font-size:15px;font-weight:600;margin-bottom:4px}
+.wd-form p{font-size:12px;color:var(--muted);margin-bottom:16px}
+.f-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px}
+.f-inp{width:100%;background:#0f1117;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--text);outline:none;font-family:inherit;margin-bottom:14px}
+.f-inp:focus{border-color:var(--accent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:var(--surface);color:var(--text);font-family:inherit;transition:all .15s}
+.chip:hover,.chip.active{border-color:var(--accent);color:var(--accent)}
+.btn-sub{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-sub:hover{background:#2563eb}
+.wd-err{color:var(--red);font-size:12px;margin-top:8px;min-height:16px}
+.wd-bal{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--green);margin-bottom:16px;font-weight:500}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;opacity:0;transition:all .3s;pointer-events:none;z-index:2000;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot.green{background:var(--green)}.dot.red{background:var(--red)}.dot.blue{background:var(--accent)}
+.flash{animation:fl .6s}
+@keyframes fl{0%,100%{opacity:1}50%{opacity:.4}}
+@media(max-width:600px){.merchant-grid{grid-template-columns:1fr}.user-grid{grid-template-columns:1fr}.bal-stats,.act-btns{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen">
+
+  <!-- Adım 1: Merchant seçimi (sadece bilinmeyen host'ta gösterilir) -->
+  <div id="step-merchant" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="login-title">⚡ PayPanel Demo</div>
+    <div class="login-sub" style="margin-bottom:32px">Demo site seçin</div>
+    <div class="merchant-grid" id="merchant-grid"></div>
+  </div>
+
+  <!-- Adım 2: Kullanıcı seçimi -->
+  <div id="step-user" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="login-title" id="login-title">⚡ PayPanel Demo</div>
+    <div class="login-sub">Kullanıcı seçin</div>
+    <div id="sel-merchant-badge" class="sel-merchant-badge" style="display:none">
+      <div class="sel-merchant-logo" id="sel-logo"></div>
+      <span class="sel-merchant-name" id="sel-name"></span>
+    </div>
+    <div class="user-grid" id="user-card-grid" style="width:100%;max-width:700px"></div>
+    <button class="back-btn" id="back-to-merchant" onclick="showMerchantStep()" style="display:none;margin-top:20px">← Siteye geri dön</button>
+  </div>
+
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-brand-logo" id="app-logo"></div>
+      <span id="app-site-name"></span>
+    </div>
+    <a class="nav-link active">Anasayfa</a>
+    <a class="nav-link" onclick="openModal('deposit')">Para Yatır</a>
+    <a class="nav-link" onclick="openModal('withdraw')">Para Çek</a>
+    <a class="nav-link">İşlem Geçmişi</a>
+    <div class="nav-right">
+      <div class="nav-bal"><span id="nav-balance">0,00 TRY</span><small>BAKİYE</small></div>
+      <div class="nav-av-sm" id="app-avatar"></div>
+      <span class="nav-logout" onclick="logout()">Çıkış</span>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="bal-card">
+      <div class="bal-lbl">Toplam Bakiye</div>
+      <div class="bal-amt" id="balance-display">0,00 <span>TRY</span></div>
+      <div class="bal-stats">
+        <div class="stat-box"><div class="stat-lbl">Toplam Yatırım</div><div class="stat-val" id="stat-deposit">₺0,00</div></div>
+        <div class="stat-box"><div class="stat-lbl">Toplam Çekim</div><div class="stat-val" id="stat-withdraw">₺0,00</div></div>
+        <div class="stat-box"><div class="stat-lbl">İşlem Sayısı</div><div class="stat-val" id="stat-count">0</div></div>
+      </div>
+    </div>
+    <div class="act-btns">
+      <button class="btn-dep" onclick="openModal('deposit')">⬇ Para Yatır</button>
+      <button class="btn-wd" onclick="openModal('withdraw')">⬆ Para Çek</button>
+    </div>
+    <div class="tx-hdr">
+      <div class="sec-title">Son İşlemler</div>
+    </div>
+    <div id="tx-list"><div class="empty-tx">Henüz işlem yok</div></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="handleOverlay(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-ttl" id="modal-title">Para Yatır</span>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-bdy" id="modal-body">
+      <iframe id="payment-frame" class="modal-frame" src="about:blank" title="Odeme"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="dot green" id="toast-dot"></div><span id="toast-msg"></span></div>
+
+
+<script>
+// ══════════════════════════════════════════════════════════
+// MERCHANT MAP — subdomain → merchant config
+// ══════════════════════════════════════════════════════════
+var MERCHANT_MAP = {
+  'site1.pingiz.cloud': {
+    name: 'Site 1', domain: 'site1.pingiz.cloud', logo: 'S1',
+    color: '#2563eb',
+    theme: {grad1:'#1e3a5f', grad2:'#1a2744', border:'#2a4a7a', lbl:'#94b4d4'},
+    merchantId: 'a382d87d-a39a-4f4c-bc2b-767cc9eb2552',
+    users: [
+      {id:'s1_user1', name:'Kullanici 1', initials:'K1', color:'#2563eb'},
+      {id:'s1_user2', name:'Kullanici 2', initials:'K2', color:'#1d4ed8'},
+      {id:'s1_user3', name:'Kullanici 3', initials:'K3', color:'#1e40af'},
+    ],
+  },
+  'site2.pingiz.cloud': {
+    name: 'Site 2', domain: 'site2.pingiz.cloud', logo: 'S2',
+    color: '#dc2626',
+    theme: {grad1:'#5f1e1e', grad2:'#441a1a', border:'#7a2a2a', lbl:'#d4a0a0'},
+    merchantId: '8a3c260b-3c99-455d-8714-14f889d74872',
+    users: [
+      {id:'s2_user1', name:'Kullanici 1', initials:'K1', color:'#dc2626'},
+      {id:'s2_user2', name:'Kullanici 2', initials:'K2', color:'#b91c1c'},
+      {id:'s2_user3', name:'Kullanici 3', initials:'K3', color:'#991b1b'},
+    ],
+  },
+  'site3.pingiz.cloud': {
+    name: 'Site 3', domain: 'site3.pingiz.cloud', logo: 'S3',
+    color: '#059669',
+    theme: {grad1:'#1e5f3a', grad2:'#1a4428', border:'#2a7a4a', lbl:'#94d4b4'},
+    merchantId: 'eafaa0a9-ddff-4304-b080-36488fa52405',
+    users: [
+      {id:'s3_user1', name:'Kullanici 1', initials:'K1', color:'#059669'},
+      {id:'s3_user2', name:'Kullanici 2', initials:'K2', color:'#047857'},
+      {id:'s3_user3', name:'Kullanici 3', initials:'K3', color:'#065f46'},
+    ],
+  },
+};
+
+var ALL_MERCHANTS = Object.values(MERCHANT_MAP);
+
+// Subdomain'den otomatik tespit — bilinmiyorsa null (seçim ekranı açılır)
+var MERCHANT_CONFIG = MERCHANT_MAP[location.hostname] || null;
+
+var GATEWAY_URL = 'https://gateway.pingiz.cloud';
+// ══════════════════════════════════════════════════════════
+
+// Aktif merchant'a göre dinamik — selectUser'da güncellenir
+var USERS_PER_MERCHANT = (MERCHANT_CONFIG || ALL_MERCHANTS[0]).users;
+
+var USER_COLORS = ['#2563eb','#7c3aed','#059669'];
+
+// ── STATE ─────────────────────────────────────────────────
+var currentMerchant = MERCHANT_CONFIG;
+var currentUser     = null;
+var balance=0, totalDeposit=0, totalWithdraw=0, txList=[], modalType=null;
+var SL = {pending:'Bekliyor',approved:'Onaylandi',rejected:'Reddedildi',processing:'Isleniyor'};
+var ML = {havale:'Havale/EFT',hizli_havale:'Hizli Havale',kripto:'Kripto',kredi_karti:'Kredi Karti',withdraw:'Para Cekme'};
+
+function getGatewayURL(){
+  return GATEWAY_URL;
+}
+function getWidgetURL(){ return getGatewayURL()+'/widget'; }
+
+// ── LOGIN FLOW ────────────────────────────────────────────
+function applyMerchantTheme(m){
+  var r = document.documentElement;
+  r.style.setProperty('--accent', m.color);
+  var t = m.theme;
+  var bc = document.querySelector('.bal-card');
+  if(bc){
+    bc.style.background = 'linear-gradient(135deg,'+t.grad1+','+t.grad2+')';
+    bc.style.borderColor = t.border;
+  }
+  document.querySelectorAll('.bal-lbl,.stat-lbl').forEach(function(el){
+    el.style.color = t.lbl;
+  });
+}
+
+function selectUser(idx){
+  currentUser = USERS_PER_MERCHANT[idx];
+  balance=0; totalDeposit=0; totalWithdraw=0; txList=[];
+
+  var m = currentMerchant;
+  var u = currentUser;
+  applyMerchantTheme(m);
+  document.getElementById('app-logo').style.background = m.color;
+  document.getElementById('app-logo').textContent = m.logo;
+  document.getElementById('app-site-name').textContent = m.name;
+  document.getElementById('app-avatar').style.background = u.color;
+  document.getElementById('app-avatar').textContent = u.initials;
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  updateUI(false);
+  connectSSE();
+}
+
+function logout(){
+  if(_sse) _sse.close();
+  currentUser = null;
+  balance=0; totalDeposit=0; totalWithdraw=0; txList=[];
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  // Subdomain'de direkt kullanıcı seçimine, yoksa merchant seçimine dön
+  if(MERCHANT_MAP[location.hostname]){
+    showUserStep(currentMerchant);
+  } else {
+    showMerchantStep();
+  }
+}
+
+// ── UI ────────────────────────────────────────────────────
+function fmtMoney(n){ return Number(n).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function timeAgo(iso){
+  var s=Math.floor((Date.now()-new Date(iso))/1000);
+  if(s<60) return s+' sn once';
+  if(s<3600) return Math.floor(s/60)+' dk once';
+  if(s<86400) return Math.floor(s/3600)+' sa once';
+  return new Date(iso).toLocaleDateString('tr-TR');
+}
+
+function updateUI(animated){
+  var b=fmtMoney(balance);
+  document.getElementById('balance-display').textContent=b+' TRY';
+  var nb=document.getElementById('nav-balance');
+  nb.textContent=b+' TRY';
+  if(animated){nb.classList.add('flash');setTimeout(function(){nb.classList.remove('flash');},600);}
+  document.getElementById('stat-deposit').textContent='₺'+fmtMoney(totalDeposit);
+  document.getElementById('stat-withdraw').textContent='₺'+fmtMoney(totalWithdraw);
+  document.getElementById('stat-count').textContent=txList.length;
+  renderTxList();
+}
+
+function renderTxList(){
+  var el=document.getElementById('tx-list');
+  if(!txList.length){el.innerHTML='<div class="empty-tx">Henuz islem yok</div>';return;}
+  var h='';
+  txList.slice(0,8).forEach(function(tx){
+    var out=tx.type==='withdraw';
+    h+='<div class="tx-item">'
+      +'<div class="tx-icon '+(out?'out':'in')+'">'+(out?'⬆️':'⬇️')+'</div>'
+      +'<div class="tx-info"><div class="tx-name">'+(out?'Para Cekme':'Para Yatirma')+'</div>'
+      +'<div class="tx-time">'+(ML[tx.method]||tx.method)+' · '+timeAgo(tx.created_at)+'</div></div>'
+      +'<div class="tx-right"><span class="badge '+(tx.status||'pending')+'">'+(SL[tx.status]||tx.status)+'</span>'
+      +'<div class="tx-amt '+(out?'out':'in')+'">'+(out?'-':'+')+' ₺'+fmtMoney(tx.amount)+'</div></div>'
+      +'</div>';
+  });
+  el.innerHTML=h;
+}
+
+var _tt=null;
+function showToast(msg,color){
+  document.getElementById('toast-dot').className='dot '+(color||'green');
+  document.getElementById('toast-msg').textContent=msg;
+  var t=document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(_tt);
+  _tt=setTimeout(function(){t.classList.remove('show');},3500);
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+
+function openModal(type){
+  if(!currentMerchant||!currentUser) return;
+  modalType=type;
+  var body=document.getElementById('modal-body');
+  if(type==='deposit'){
+    document.getElementById('modal-title').textContent='Para Yatır';
+    var p=new URLSearchParams({
+      merchant_id: currentMerchant.merchantId,
+      user_id:     currentUser.id,
+      page:        'deposit',
+      engine_url:  getGatewayURL(),
+    });
+    body.innerHTML='<iframe id="payment-frame" class="modal-frame" src="about:blank" title="Odeme"></iframe>';
+    setTimeout(function(){ document.getElementById('payment-frame').src=getWidgetURL()+'?'+p; },50);
+  } else {
+    document.getElementById('modal-title').textContent='Para Çek';
+    var p=new URLSearchParams({
+      merchant_id: currentMerchant.merchantId,
+      user_id:     currentUser.id,
+      page:        'withdraw',
+      engine_url:  getGatewayURL(),
+      balance:     balance.toFixed(2),
+    });
+    body.innerHTML='<iframe id="payment-frame" class="modal-frame" src="about:blank" title="Odeme"></iframe>';
+    setTimeout(function(){ document.getElementById('payment-frame').src=getWidgetURL()+'?'+p; },50);
+  }
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow='';
+  setTimeout(function(){
+    document.getElementById('modal-body').innerHTML='<iframe id="payment-frame" class="modal-frame" src="about:blank" title="Odeme"></iframe>';
+    modalType=null;
+  },300);
+}
+
+function handleOverlay(e){if(e.target===document.getElementById('overlay'))closeModal();}
+
+// ── iframe MESSAGES ───────────────────────────────────────
+window.addEventListener('message',function(e){
+  if(!e.data) return;
+  if(e.data.type==='pp-close'){closeModal();return;}
+  // pp-confirmed: yatırdım tıklandı, panel onayı bekleniyor — modalı kapatma
+  if(e.data.type==='pp-confirmed'||e.data.type==='pp-success'){
+    var amt=parseFloat(e.data.amount)||0;
+    var isWd=e.data.method==='withdraw';
+    var txId=e.data.transaction_id||(isWd?'wd_':'dep_')+Date.now();
+    if(!txList.find(function(t){return t.id===txId;})){
+      txList.unshift({id:txId,type:isWd?'withdraw':'deposit',method:e.data.method||'havale',amount:amt,status:'processing',created_at:new Date().toISOString()});
+      if(isWd){ balance-=amt; totalWithdraw+=amt; }
+      updateUI(false);
+    }
+    // Modal AÇIK kalıyor — SSE callback gelince kapanacak
+  }
+});
+
+// ── SSE ───────────────────────────────────────────────────
+var _sse=null;
+function connectSSE(){
+  if(!currentUser) return;
+  if(_sse) _sse.close();
+  try{
+    _sse=new EventSource(getGatewayURL()+'/api/events/'+currentUser.id);
+    _sse.onmessage=function(e){
+      try{var msg=JSON.parse(e.data);if(msg.type==='connected')return;handleWebhook(msg);}catch(err){}
+    };
+    _sse.onerror=function(){setTimeout(connectSSE,5000);};
+  }catch(err){}
+}
+
+function handleWebhook(msg){
+  var amt=parseFloat(msg.amount||0);
+  var finalStatus = msg.status==='APPROVED'||msg.status==='REJECTED'||msg.status==='TIMEOUT';
+  // Nihai durum geldi — iframe'e sonuç bildir
+  if(finalStatus){
+    var frame=document.getElementById('payment-frame');
+    if(frame && frame.contentWindow){
+      try{
+        frame.contentWindow.postMessage({
+          type:'pp-result', status:msg.status, amount:amt, txId:msg.txId
+        },'*');
+      }catch(e){}
+    }
+  }
+  var tx=txList.find(function(t){return t.id===msg.txId;});
+  if(msg.status==='APPROVED'){
+    if(msg.type==='deposit'||!msg.type){balance+=amt;totalDeposit+=amt;updateUI(true);showToast('✅ ₺'+fmtMoney(amt)+' bakiyenize eklendi!','green');}
+    else{showToast('✅ ₺'+fmtMoney(amt)+' cekiminiz onaylandi.','green');}
+    if(tx){tx.status='approved';renderTxList();}
+    else{txList.unshift({id:msg.txId,type:msg.type||'deposit',method:'havale',amount:amt,status:'approved',created_at:new Date().toISOString()});renderTxList();}
+  }else if(msg.status==='REJECTED'){showToast('❌ Islem reddedildi.','red');if(tx){tx.status='rejected';renderTxList();}}
+  else if(msg.status==='PENDING'){if(tx){tx.status='pending';renderTxList();}}
+  else if(msg.status==='TIMEOUT'){showToast('⏰ Islem suresi doldu.','red');if(tx){tx.status='rejected';renderTxList();}}
+}
+
+
+function showMerchantStep(){
+  document.getElementById('step-merchant').style.display='flex';
+  document.getElementById('step-user').style.display='none';
+}
+
+function showUserStep(merchant){
+  currentMerchant = merchant;
+  document.getElementById('step-merchant').style.display='none';
+  var su = document.getElementById('step-user');
+  su.style.display='flex';
+  // badge
+  var badge = document.getElementById('sel-merchant-badge');
+  var logo  = document.getElementById('sel-logo');
+  var name  = document.getElementById('sel-name');
+  var back  = document.getElementById('back-to-merchant');
+  if(badge && logo && name){
+    if(MERCHANT_MAP[location.hostname]){
+      badge.style.display='none';
+    } else {
+      logo.style.background = merchant.color;
+      logo.textContent = merchant.logo;
+      name.textContent = merchant.name;
+      badge.style.display='flex';
+    }
+  }
+  // geri butonu sadece merchant seçim adımından geldiyse göster
+  if(back) back.style.display = MERCHANT_MAP[location.hostname] ? 'none' : 'inline-block';
+  // başlık
+  var lt = document.getElementById('login-title');
+  if(lt) lt.textContent = merchant.name;
+  // Kullanıcı kartlarını merchant'a göre yeniden render et
+  USERS_PER_MERCHANT = merchant.users;
+  var grid = document.getElementById('user-card-grid');
+  if(grid){
+    grid.innerHTML = '';
+    merchant.users.forEach(function(u, i){
+      var card = document.createElement('div');
+      card.className = 'user-card';
+      card.onclick = (function(idx){ return function(){ selectUser(idx); }; })(i);
+      card.innerHTML =
+        '<div class="user-av" style="background:'+u.color+'">'+u.initials+'</div>'
+        +'<div class="user-name">'+u.name+'</div>'
+        +'<div class="user-id">'+u.id+'</div>';
+      grid.appendChild(card);
+    });
+  }
+}
+
+function selectMerchant(idx){
+  showUserStep(ALL_MERCHANTS[idx]);
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  // Merchant grid'i render et
+  var grid = document.getElementById('merchant-grid');
+  if(grid){
+    ALL_MERCHANTS.forEach(function(m, i){
+      var card = document.createElement('div');
+      card.className = 'merchant-card';
+      card.onclick = function(){ selectMerchant(i); };
+      card.innerHTML =
+        '<div class="merchant-logo" style="background:'+m.color+'">'+m.logo+'</div>'
+        +'<div class="merchant-name">'+m.name+'</div>'
+        +'<div class="merchant-domain">'+m.domain+'</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  if(MERCHANT_CONFIG){
+    // Subdomain'den otomatik tespit edildi — direkt kullanıcı seçimine geç
+    showUserStep(MERCHANT_CONFIG);
+  } else {
+    // Bilinmeyen host — merchant seçim ekranını göster
+    showMerchantStep();
+  }
+
+  // Nav logo (uygulama açıkken)
+  var al = document.getElementById('app-logo');
+  var sn = document.getElementById('app-site-name');
+  if(currentMerchant){
+    if(al){ al.style.background = currentMerchant.color; al.textContent = currentMerchant.logo; }
+    if(sn) sn.textContent = currentMerchant.name;
+  }
+});
+</script>
+</body>
+</html>

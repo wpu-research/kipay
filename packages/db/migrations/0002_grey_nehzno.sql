@@ -1,0 +1,1 @@
+-- Empty migration (placeholder — 0002 SQL file was missing from repository)

@@ -1,0 +1,33 @@
+{
+  "name": "panel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev --continue",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{json,css,js,ts,tsx,md,yml}\"",
+    "db:generate": "turbo db:generate --filter=@panel/db",
+    "db:migrate": "turbo db:migrate --filter=@panel/db",
+    "db:studio": "turbo db:studio --filter=@panel/db"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "shadcn": "^4.1.0",
+    "turbo": "latest",
+    "typescript": "^5.5.4"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "argon2",
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@panel/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "clean": "rimraf dist .turbo",
+    "dev": "tsc --project tsconfig.build.json --watch",
+    "lint": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "seed": "tsx src/seed.ts",
+    "create-test-merchant": "tsx src/create-test-merchant.ts"
+  },
+  "dependencies": {
+    "argon2": "^0.43.0",
+    "drizzle-orm": "^0.38.3",
+    "drizzle-zod": "^0.5.1",
+    "otplib": "^12.0.1",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@panel/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "drizzle-kit": "^0.30.1",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4"
+  }
+}

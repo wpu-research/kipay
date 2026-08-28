@@ -1,0 +1,5 @@
+# Read more at: https://pnpm.io/pnpm-workspace_yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - '!**/node_modules/**'

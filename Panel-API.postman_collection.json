@@ -1,0 +1,410 @@
+{
+  "info": {
+    "name": "Panel API",
+    "description": "Panel ödeme yönetim sistemi — tüm endpoint'ler. Merchant API klasörü HMAC imzasını otomatik hesaplar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",          "value": "http://localhost:3001",  "description": "API base URL" },
+    { "key": "merchant_key_id",   "value": "",                       "description": "Merchant API key ID (key_xxx formatı)" },
+    { "key": "merchant_secret",   "value": "",                       "description": "Merchant API secret (sk_xxx formatı)" },
+    { "key": "jwt_token",         "value": "",                       "description": "Login sonrası otomatik dolar" },
+    { "key": "tenant_id",         "value": "",                       "description": "Test tenant ID" },
+    { "key": "transaction_id",    "value": "",                       "description": "Test işlem ID" }
+  ],
+  "item": [
+
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data?.token) {",
+                  "    pm.collectionVariables.set('jwt_token', body.data.token);",
+                  "    console.log('Token kaydedildi');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "TOTP Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/auth/totp/verify", "host": ["{{base_url}}"], "path": ["api","v1","auth","totp","verify"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/auth/logout", "host": ["{{base_url}}"], "path": ["api","v1","auth","logout"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Merchant API (HMAC)",
+      "description": "X-API-Key, X-Timestamp, X-Nonce, X-Signature header'ları pre-request script ile otomatik hesaplanır.\n\nKullanım:\n1. Collection Variables'a merchant_key_id ve merchant_secret gir\n2. İstekleri gönder — imza otomatik eklenir",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Collection değişkenlerinden key al",
+              "const keyId  = pm.collectionVariables.get('merchant_key_id');",
+              "const secret = pm.collectionVariables.get('merchant_secret');",
+              "",
+              "if (!keyId || !secret) {",
+              "  console.error('merchant_key_id ve merchant_secret collection variables eksik!');",
+              "  return;",
+              "}",
+              "",
+              "// Timestamp (saniye cinsinden)",
+              "const timestamp = Math.floor(Date.now() / 1000).toString();",
+              "",
+              "// Nonce — rastgele UUID",
+              "const nonce = pm.variables.replaceIn('{{$guid}}');",
+              "",
+              "// Raw body (GET isteklerinde boş string)",
+              "const rawBody = pm.request.body?.raw || '';",
+              "",
+              "// Canonical string: timestamp\\nnonce\\nrawBody",
+              "const canonical = timestamp + '\\n' + nonce + '\\n' + rawBody;",
+              "",
+              "// HMAC-SHA256 (Postman built-in CryptoJS)",
+              "const signature = CryptoJS.HmacSHA256(canonical, secret).toString();",
+              "",
+              "// Header'ları ayarla",
+              "pm.request.headers.upsert({ key: 'X-API-Key',   value: keyId + ':' + secret });",
+              "pm.request.headers.upsert({ key: 'X-Timestamp', value: timestamp });",
+              "pm.request.headers.upsert({ key: 'X-Nonce',     value: nonce });",
+              "pm.request.headers.upsert({ key: 'X-Signature', value: signature });",
+              "",
+              "console.log('HMAC imzalandı — nonce:', nonce, 'timestamp:', timestamp);"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Deposit — Initiate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.txId) {",
+                  "    pm.collectionVariables.set('transaction_id', body.txId);",
+                  "    console.log('txId kaydedildi:', body.txId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"player-123\",\n  \"amount\": \"500.00\",\n  \"currency\": \"TRY\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/merchant/v1/deposit/initiate", "host": ["{{base_url}}"], "path": ["merchant","v1","deposit","initiate"] },
+            "description": "Deposit başlatır. status=STARTED, IBAN/wallet bilgisi ve expiresAt (30 dk) döner.\n\nResponse'daki txId otomatik olarak collection variable'a kaydedilir."
+          }
+        },
+        {
+          "name": "Deposit — Confirm",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txId\": \"{{transaction_id}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/merchant/v1/deposit/confirm", "host": ["{{base_url}}"], "path": ["merchant","v1","deposit","confirm"] },
+            "description": "Oyuncu ödeme yaptığını bildirdi. STARTED → PENDING geçişi yapar, SSE ile finans ekibine bildirim gider."
+          }
+        },
+        {
+          "name": "Withdrawal — Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.txId) {",
+                  "    pm.collectionVariables.set('transaction_id', body.txId);",
+                  "    console.log('withdrawal txId kaydedildi:', body.txId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"player-123\",\n  \"amount\": \"250.00\",\n  \"currency\": \"TRY\",\n  \"paymentMethod\": \"IBAN\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/merchant/v1/withdrawal/request", "host": ["{{base_url}}"], "path": ["merchant","v1","withdrawal","request"] },
+            "description": "Withdrawal talebi oluşturur. Doğrudan PENDING durumunda oluşur, finans ekibine SSE bildirimi gider."
+          }
+        },
+        {
+          "name": "Withdrawal — Cancel",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{base_url}}/merchant/v1/withdrawal/{{transaction_id}}", "host": ["{{base_url}}"], "path": ["merchant","v1","withdrawal","{{transaction_id}}"] },
+            "description": "Sadece PENDING durumundaki withdrawal iptal edilebilir. Başka durumda 409 CANNOT_CANCEL döner."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Transactions (JWT)",
+      "description": "Finans/panel kullanıcıları için işlem yönetimi. Authorization header'ına jwt_token otomatik eklenir.",
+      "item": [
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/transactions?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","transactions"],
+              "query": [
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "20" },
+                { "key": "status", "value": "PENDING", "disabled": true },
+                { "key": "merchantId", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Transaction Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}"] }
+          }
+        },
+        {
+          "name": "Claim Transaction",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/claim", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","claim"] },
+            "description": "Finans rolü — PENDING işlemi kendine claim eder (PROCESSING'e geçer, 10 dk süresi var)."
+          }
+        },
+        {
+          "name": "Approve Transaction",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/approve", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","approve"] },
+            "description": "Finans rolü — PROCESSING işlemi onaylar (APPROVED)."
+          }
+        },
+        {
+          "name": "Reject Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Ödeme doğrulanamadı\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/reject", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","reject"] }
+          }
+        },
+        {
+          "name": "Flag Transaction",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/flag", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","flag"] },
+            "description": "Finans/operator — PROCESSING işlemi şüpheli olarak işaretler (FLAGGED)."
+          }
+        },
+        {
+          "name": "Resolve Transaction (FLAGGED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approved\",\n  \"reason\": \"Belge doğrulandı\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/resolve", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","resolve"] },
+            "description": "Firma/super_admin — FLAGGED işlemi kapatır. decision: 'approved' | 'rejected'"
+          }
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Yorum metni\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/transactions/{{transaction_id}}/comments", "host": ["{{base_url}}"], "path": ["api","v1","transactions","{{transaction_id}}","comments"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Merchants (JWT)",
+      "item": [
+        {
+          "name": "List Merchants",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/merchants?page=1&limit=20", "host": ["{{base_url}}"], "path": ["api","v1","merchants"] }
+          }
+        },
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": { "raw": "{{base_url}}/api/v1/merchants/{{merchant_id}}/api-keys", "host": ["{{base_url}}"], "path": ["api","v1","merchants","{{merchant_id}}","api-keys"] }
+          }
+        },
+        {
+          "name": "Create API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data?.keyId) {",
+                  "    pm.collectionVariables.set('merchant_key_id', body.data.keyId);",
+                  "    console.log('keyId kaydedildi:', body.data.keyId);",
+                  "  }",
+                  "  if (body.data?.plainSecret) {",
+                  "    pm.collectionVariables.set('merchant_secret', body.data.plainSecret);",
+                  "    console.log('secret kaydedildi (sadece bir kez görünür!)');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Key\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/v1/merchants/{{merchant_id}}/api-keys", "host": ["{{base_url}}"], "path": ["api","v1","merchants","{{merchant_id}}","api-keys"] },
+            "description": "API key oluşturur. plainSecret sadece bu response'da döner, sonra görülemez!\nTest script keyId ve secret'i otomatik collection variable'a kaydeder."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payment Accounts (JWT)",
+      "item": [
+        {
+          "name": "List Payment Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/api/v1/payment-accounts?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api","v1","payment-accounts"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "active", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v1/system/health", "host": ["{{base_url}}"], "path": ["api","v1","system","health"] }
+          }
+        },
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/docs", "host": ["{{base_url}}"], "path": ["docs"] },
+            "description": "Tarayıcıda aç: http://localhost:3001/docs"
+          }
+        }
+      ]
+    }
+
+  ]
+}
