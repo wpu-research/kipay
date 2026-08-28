@@ -12,252 +12,287 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1773964317943,
+      "when": 1773958855218,
       "tag": "0001_skinny_slayback",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1774031822369,
+      "when": 1773958856218,
       "tag": "0002_grey_nehzno",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1774052273425,
+      "when": 1773958857218,
       "tag": "0003_dry_wendell_vaughn",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1774104365388,
+      "when": 1773958858218,
       "tag": "0004_far_the_enforcers",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1774124102891,
+      "when": 1773958859218,
       "tag": "0005_silent_emma_frost",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1774125273160,
+      "when": 1773958860218,
       "tag": "0006_amazing_brother_voodoo",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1774125894894,
+      "when": 1773958861218,
       "tag": "0007_loving_zaladane",
       "breakpoints": true
     },
     {
       "idx": 8,
       "version": "7",
-      "when": 1774128282046,
+      "when": 1773958862218,
       "tag": "0008_yellow_young_avengers",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "7",
-      "when": 1774134751419,
+      "when": 1773958863218,
       "tag": "0009_daily_whizzer",
       "breakpoints": true
     },
     {
       "idx": 10,
       "version": "7",
-      "when": 1774137973274,
+      "when": 1773958864218,
       "tag": "0010_tough_radioactive_man",
       "breakpoints": true
     },
     {
       "idx": 11,
       "version": "7",
-      "when": 1774151363490,
+      "when": 1773958865218,
       "tag": "0011_steady_the_stranger",
       "breakpoints": true
     },
     {
       "idx": 12,
       "version": "7",
-      "when": 1774191165273,
+      "when": 1773958866218,
       "tag": "0012_misty_demogoblin",
       "breakpoints": true
     },
     {
       "idx": 13,
       "version": "7",
-      "when": 1774203983301,
+      "when": 1773958867218,
       "tag": "0013_opposite_blob",
       "breakpoints": true
     },
     {
       "idx": 14,
       "version": "7",
-      "when": 1774211413819,
+      "when": 1773958868218,
       "tag": "0014_huge_ultragirl",
       "breakpoints": true
     },
     {
       "idx": 15,
       "version": "7",
-      "when": 1774212786306,
+      "when": 1773958869218,
       "tag": "0015_silly_legion",
       "breakpoints": true
     },
     {
       "idx": 16,
       "version": "7",
-      "when": 1774230846968,
+      "when": 1773958870218,
       "tag": "0016_strong_hobgoblin",
       "breakpoints": true
     },
     {
       "idx": 17,
       "version": "7",
-      "when": 1774235269910,
+      "when": 1773958871218,
       "tag": "0017_fancy_tag",
       "breakpoints": true
     },
     {
       "idx": 18,
       "version": "7",
-      "when": 1774238739651,
+      "when": 1773958872218,
       "tag": "0018_cooing_microchip",
       "breakpoints": true
     },
     {
       "idx": 19,
       "version": "7",
-      "when": 1774294865749,
+      "when": 1773958873218,
       "tag": "0019_steady_phil_sheldon",
       "breakpoints": true
     },
     {
       "idx": 20,
       "version": "7",
-      "when": 1774298757243,
+      "when": 1773958874218,
       "tag": "0020_abandoned_carmella_unuscione",
       "breakpoints": true
     },
     {
       "idx": 21,
       "version": "7",
-      "when": 1774569600000,
+      "when": 1773958875218,
       "tag": "0021_cr_sweep_indexes_fk",
       "breakpoints": true
     },
     {
       "idx": 22,
       "version": "7",
-      "when": 1774353396040,
+      "when": 1773958876218,
       "tag": "0022_bent_mongu",
       "breakpoints": true
     },
     {
       "idx": 23,
       "version": "7",
-      "when": 1774356085255,
+      "when": 1773958877218,
       "tag": "0023_equal_genesis",
       "breakpoints": true
     },
     {
       "idx": 24,
       "version": "7",
-      "when": 1742860800000,
+      "when": 1773958878218,
       "tag": "0024_banks_cryptos_account_type",
       "breakpoints": true
     },
     {
       "idx": 25,
       "version": "7",
-      "when": 1743004800000,
+      "when": 1773958879218,
       "tag": "0025_drop_user_block_columns",
       "breakpoints": true
     },
     {
       "idx": 26,
       "version": "7",
-      "when": 1743091200000,
+      "when": 1773958880218,
       "tag": "0026_banks_iban_code",
       "breakpoints": true
     },
     {
       "idx": 27,
       "version": "7",
-      "when": 1743177600000,
+      "when": 1773958881218,
       "tag": "0027_banks_is_active",
       "breakpoints": true
     },
     {
       "idx": 28,
       "version": "7",
-      "when": 1774710482380,
-      "tag": "0032_rate_sync_config",
+      "when": 1773958882218,
+      "tag": "0028_transactions_exchange_rate",
       "breakpoints": true
     },
     {
       "idx": 29,
       "version": "7",
-      "when": 1774796800000,
-      "tag": "0033_drop_rate_sync_config",
+      "when": 1773958883218,
+      "tag": "0029_supported_cryptos_cleanup",
       "breakpoints": true
     },
     {
       "idx": 30,
       "version": "7",
-      "when": 1774795295060,
-      "tag": "0035_restore_user_block_columns",
+      "when": 1773958884218,
+      "tag": "0030_cryptos_is_active",
       "breakpoints": true
     },
     {
       "idx": 31,
       "version": "7",
-      "when": 1743465600000,
-      "tag": "0036_restore_tenant_id_not_null",
+      "when": 1773958885218,
+      "tag": "0031_withdrawal_address",
       "breakpoints": true
     },
     {
       "idx": 32,
       "version": "7",
-      "when": 1743897600000,
-      "tag": "0037_totp_nullable",
+      "when": 1773958886218,
+      "tag": "0032_rate_sync_config",
       "breakpoints": true
     },
     {
       "idx": 33,
       "version": "7",
-      "when": 1747180800000,
-      "tag": "0038_routing_engine_v2",
+      "when": 1773958887218,
+      "tag": "0033_drop_rate_sync_config",
       "breakpoints": true
     },
     {
       "idx": 34,
       "version": "7",
-      "when": 1747267200000,
-      "tag": "0039_deposit_api_v2",
+      "when": 1773958888218,
+      "tag": "0034_withdrawal_account_name",
       "breakpoints": true
     },
     {
       "idx": 35,
       "version": "7",
-      "when": 1747267201000,
-      "tag": "0040_merchant_secret_encrypted",
+      "when": 1773958889218,
+      "tag": "0035_restore_user_block_columns",
       "breakpoints": true
     },
     {
       "idx": 36,
       "version": "7",
-      "when": 1747267202000,
+      "when": 1773958890218,
+      "tag": "0036_restore_tenant_id_not_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773958891218,
+      "tag": "0037_totp_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773958892218,
+      "tag": "0038_routing_engine_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1773958893218,
+      "tag": "0039_deposit_api_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773958894218,
+      "tag": "0040_merchant_secret_encrypted",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1773958895218,
       "tag": "0041_userinfo_columns",
       "breakpoints": true
     }
