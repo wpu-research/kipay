@@ -7,7 +7,7 @@
  */
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { randomBytes, createCipheriv, scryptSync } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import * as argon2 from 'argon2'
 import { eq } from 'drizzle-orm'
 import * as schema from './schema/index.js'
