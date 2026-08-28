@@ -147,6 +147,11 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
       accountName:    pa.name,
       bankName:       pa.bank?.name ?? null,
     } : {}),
+    ...((freshTx as any).revised ? {
+      revision:       true,
+      previousStatus: (freshTx as any).previousStatus,
+      originalAmount: freshTx.amount,
+    } : {}),
   }
   const baseBody = JSON.stringify(basePayload)
 

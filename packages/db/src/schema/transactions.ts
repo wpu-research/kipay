@@ -32,6 +32,9 @@ export const transactions = pgTable('transactions', {
   userMiddleName:     text('user_middle_name').default(''),
   userLastName:       text('user_last_name'),
   userPhone:          text('user_phone'),
+  // v1.1 revision — terminal işlem sonradan APPROVED'a çevrildiğinde
+  revised:            boolean('revised').notNull().default(false),
+  previousStatus:     transactionStatusEnum('previous_status'),
   claimedBy:        uuid('claimed_by').references(() => users.id),
   claimedAt:        timestamp('claimed_at', { withTimezone: true }),
   claimExpiresAt:   timestamp('claim_expires_at', { withTimezone: true }),

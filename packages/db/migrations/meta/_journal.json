@@ -295,6 +295,13 @@
       "when": 1773958895218,
       "tag": "0041_userinfo_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1773958896218,
+      "tag": "0042_transaction_revision",
+      "breakpoints": true
     }
   ]
 }

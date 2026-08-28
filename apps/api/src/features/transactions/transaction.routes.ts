@@ -185,7 +185,30 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
     return reply.send(serializeTransaction(approved))
   })
 
-  // POST /:id/reject — finans_operator, finans_admin, tenant_admin (super_admin dahil değil — AC #5)
+  // POST /:id/revise — terminal REJECTED/TIMEOUT deposit'i APPROVED'a çevirir (v1.1 revision)
+  fastify.post('/:id/revise', {
+    preHandler: [authenticate, requireTransactionProcessor],
+    config:     { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Transactions'],
+      summary: 'Terminal işlemi revize et (REJECTED/TIMEOUT → APPROVED)',
+      params:   z.object({ id: z.string().uuid() }),
+      response: { 200: ApproveRejectResponseSchema },
+    },
+  }, async (request, reply) => {
+    const { userId, tenantId, role } = request.user
+    const { id } = request.params
+
+    const revised = await transactionService.reviseTransaction(tenantId, userId, id, role)
+    request.auditEntry = { action: 'transaction.revise', resourceType: 'transaction', resourceId: id, tenantId }
+    console.log(`[revise] tx=${revised.id} ${revised.previousStatus}→APPROVED (revision)`)
+
+    request.server.boss.send('callback-retry', { transactionId: revised.id }, { retryLimit: 4, retryDelay: 120, singletonKey: revised.id, expireInSeconds: 60 })
+      .then((jobId: string | null) => console.log(`[revise] boss.send result: jobId=${jobId ?? 'null'}`))
+      .catch((err: unknown) => request.log.error({ err }, '[revise] callback-retry kuyruğa eklenemedi'))
+
+    return reply.send(serializeTransaction(revised))
+  })
   fastify.post('/:id/reject', {
     preHandler: [authenticate, requireTransactionProcessor],
     config:     { rateLimit: { max: 60, timeWindow: '1 minute' } },

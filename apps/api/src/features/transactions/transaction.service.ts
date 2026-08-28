@@ -464,6 +464,51 @@ export const transactionService = {
     return approved
   },
 
+  // v1.1 STATUS REVISION — terminal REJECTED/TIMEOUT deposit'i APPROVED'a çevirir.
+  // Sadece deposit, sadece 1 saat penceresinde. revised=true işaretler ki
+  // callback-retry job'ı revision callback (previousStatus) göndersin.
+  async reviseTransaction(tenantId: string, userId: string, transactionId: string, userRole: string) {
+    const isAdmin = userRole === 'finans_admin' || userRole === 'tenant_admin'
+    if (!isAdmin) throw new AppError('FORBIDDEN', 'Revizyon yalnızca finans_admin veya tenant_admin tarafından yapılabilir.', 403)
+
+    const tx = await db.query.transactions.findFirst({
+      where: and(eq(transactions.id, transactionId), eq(transactions.tenantId, tenantId)),
+    })
+    if (!tx) throw new AppError('NOT_FOUND', 'İşlem bulunamadı.', 404)
+    if (tx.type !== 'deposit') throw new AppError('INVALID_STATE_TRANSITION', 'Revizyon yalnızca deposit işlemleri için geçerlidir.', 409)
+    if (tx.status !== 'REJECTED' && tx.status !== 'TIMEOUT') {
+      throw new AppError('INVALID_STATE_TRANSITION', 'Yalnızca REJECTED veya TIMEOUT işlem revize edilebilir.', 409)
+    }
+    // 1 saat penceresi — terminal state'e geçişten itibaren
+    const terminalAt = tx.resolvedAt ?? tx.updatedAt
+    const oneHourMs = 60 * 60 * 1000
+    if (terminalAt && Date.now() - new Date(terminalAt).getTime() > oneHourMs) {
+      throw new AppError('REVISION_WINDOW_EXPIRED', 'Revizyon penceresi (1 saat) dolmuş. Manuel mutabakat gerekir.', 409)
+    }
+
+    const previousStatus = tx.status
+    const [revised] = await db
+      .update(transactions)
+      .set({
+        status: 'APPROVED',
+        callbackStatus: 'pending',
+        revised: true,
+        previousStatus,
+        resolvedBy: userId,
+        resolvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(transactions.id, transactionId),
+        eq(transactions.tenantId, tenantId),
+        inArray(transactions.status, ['REJECTED', 'TIMEOUT']),
+      ))
+      .returning()
+
+    if (!revised) throw new AppError('INVALID_STATE_TRANSITION', 'Durum değiştirilemedi (eşzamanlı değişiklik).', 409)
+    return revised
+  },
+
   async rejectTransaction(tenantId: string, userId: string, transactionId: string, reason: string, userRole: string) {
     if (!reason?.trim()) throw new AppError('REASON_REQUIRED', 'Red nedeni zorunludur.', 400)
     const isAdmin = userRole === 'finans_admin' || userRole === 'tenant_admin'
