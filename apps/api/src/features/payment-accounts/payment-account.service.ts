@@ -1,4 +1,4 @@
-import { db, paymentAccounts, paymentAccountCryptos, banks, cryptos, eq, and, sql, inArray } from '@panel/db'
+import { db, paymentAccounts, paymentAccountCryptos, banks, cryptos, paymentProviders, eq, and, sql, inArray } from '@panel/db'
 import { AppError } from '../../errors/app-error.js'
 import type { CreatePaymentAccountInput, UpdatePaymentAccountInput, UpdatePaymentAccountStatusInput, UpdateDailyLimitInput } from '@panel/types'
 
@@ -34,11 +34,27 @@ async function attachRelations(rows: (typeof paymentAccounts.$inferSelect)[]) {
     : []
   const bankMap = new Map(bankRows.map((b) => [b.id, b]))
 
+  // Tedarik firması ilişkileri
+  const providerIds = [...new Set(rows.map((r) => r.providerId).filter(Boolean))] as string[]
+  const providerRows = providerIds.length
+    ? await db.select().from(paymentProviders).where(inArray(paymentProviders.id, providerIds))
+    : []
+  const providerMap = new Map(providerRows.map((p) => [p.id, p]))
+
   return rows.map((r) => ({
     ...r,
-    bank:    r.bankId ? (bankMap.get(r.bankId) ?? null) : null,
+    bank:     r.bankId ? (bankMap.get(r.bankId) ?? null) : null,
+    provider: r.providerId ? (providerMap.get(r.providerId) ?? null) : null,
     cryptos: linkMap.get(r.id) ?? [],
   }))
+}
+
+async function assertProvider(tenantId: string, providerId: string) {
+  const row = await db.query.paymentProviders.findFirst({
+    where: and(eq(paymentProviders.id, providerId), eq(paymentProviders.tenantId, tenantId)),
+    columns: { id: true },
+  })
+  if (!row) throw new AppError('NOT_FOUND', 'Tedarik firması bulunamadı.', 404)
 }
 
 export const paymentAccountService = {
@@ -56,6 +72,8 @@ export const paymentAccountService = {
       if (found.length !== data.cryptoIds.length) throw new AppError('NOT_FOUND', 'Bir veya daha fazla kripto para bulunamadı.', 404)
     }
 
+    if (data.providerId) await assertProvider(tenantId, data.providerId)
+
     const [row] = await db.insert(paymentAccounts).values({
       tenantId,
       type:           data.type,
@@ -65,6 +83,7 @@ export const paymentAccountService = {
       environment:    data.environment,
       dailyLimit:     data.dailyLimit,
       dailyUsed:      '0',
+      providerId:     data.providerId ?? null,
       ownedByUserId:  ownedByUserId ?? null,
     }).returning()
     if (!row) throw new AppError('INTERNAL_SERVER_ERROR', 'Hesap oluşturulamadı.', 500)
@@ -80,12 +99,13 @@ export const paymentAccountService = {
     return enriched
   },
 
-  async listAccounts(tenantId: string, filters: { status?: string; type?: string; bankId?: string }, page: number, limit: number) {
+  async listAccounts(tenantId: string, filters: { status?: string; type?: string; bankId?: string; providerId?: string }, page: number, limit: number) {
     return db.transaction(async (tx) => {
       const conditions = [eq(paymentAccounts.tenantId, tenantId)]
       if (filters.status) conditions.push(eq(paymentAccounts.status, filters.status as 'active' | 'inactive'))
       if (filters.type)   conditions.push(eq(paymentAccounts.type, filters.type as 'bank' | 'crypto'))
       if (filters.bankId) conditions.push(eq(paymentAccounts.bankId, filters.bankId))
+      if (filters.providerId) conditions.push(eq(paymentAccounts.providerId, filters.providerId))
 
       const where = and(...conditions)
 
@@ -121,6 +141,8 @@ export const paymentAccountService = {
   },
 
   async updateAccount(tenantId: string, id: string, data: UpdatePaymentAccountInput) {
+    if (data.providerId) await assertProvider(tenantId, data.providerId)
+
     // Kripto güncellemesi varsa junction table'ı yeniden yaz
     if (data.cryptoIds !== undefined) {
       const found = await db.select({ id: cryptos.id }).from(cryptos).where(inArray(cryptos.id, data.cryptoIds))
@@ -140,6 +162,7 @@ export const paymentAccountService = {
       ...(data.bankId        !== undefined && { bankId: data.bankId }),
       ...(data.environment   !== undefined && { environment: data.environment }),
       ...(data.dailyLimit    !== undefined && { dailyLimit: data.dailyLimit }),
+      ...(data.providerId    !== undefined && { providerId: data.providerId }),
       updatedAt: new Date(),
     }
 

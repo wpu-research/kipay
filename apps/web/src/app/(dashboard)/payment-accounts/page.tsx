@@ -41,6 +41,7 @@ import {
 } from '@/features/payment-accounts/use-payment-accounts'
 import { useBanks }   from '@/features/banks/use-banks'
 import { useCryptos } from '@/features/cryptos/use-cryptos'
+import { usePaymentProviders } from '@/features/payment-providers/use-payment-providers'
 import type { PaymentAccount } from '@panel/types'
 
 // --- Helpers ---
@@ -85,6 +86,7 @@ type AccountFormData = {
   accountNumber: string
   environment:   'sandbox' | 'production'
   dailyLimit:    string
+  providerId:    string
 }
 
 function AccountFormDialog({
@@ -106,7 +108,9 @@ function AccountFormDialog({
 }) {
   const { data: banksData }   = useBanks()
   const { data: cryptosData } = useCryptos()
+  const { data: providersData } = usePaymentProviders(1, 100)
 
+  const providers = (providersData?.data ?? []).filter((p) => p.status === 'active')
   const banks   = (banksData?.data ?? []).filter((b) => b.isActive)
   const cryptos = (cryptosData?.data ?? []).filter((c) => c.isActive)
 
@@ -118,6 +122,7 @@ function AccountFormDialog({
     accountNumber: '',
     environment:   'production',
     dailyLimit:    '',
+    providerId:    '',
   })
 
   useEffect(() => {
@@ -130,6 +135,7 @@ function AccountFormDialog({
         accountNumber: initialData?.accountNumber ?? '',
         environment:   initialData?.environment   ?? 'production',
         dailyLimit:    initialData?.dailyLimit     ?? '',
+        providerId:    initialData?.providerId    ?? '',
       })
     }
   }, [open])
@@ -284,6 +290,24 @@ function AccountFormDialog({
               onChange={(e) => setForm((f) => ({ ...f, dailyLimit: e.target.value }))}
               placeholder="50000.00"
             />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Tedarik Firması</label>
+            <Select
+              value={form.providerId || '_none'}
+              onValueChange={(v) => setForm((f) => ({ ...f, providerId: v === '_none' ? '' : v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="— Seçilmedi —" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">— Seçilmedi —</SelectItem>
+                {providers.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {error && <p className="text-xs text-destructive">{error}</p>}
@@ -493,6 +517,14 @@ function buildColumns(
       },
     },
     {
+      id: 'provider',
+      header: 'Tedarik Firması',
+      cell: ({ row }) =>
+        row.original.provider
+          ? <span className="text-sm">{row.original.provider.name}</span>
+          : <span className="text-muted-foreground text-xs">—</span>,
+    },
+    {
       accessorKey: 'environment',
       header: 'Ortam',
       cell: ({ row }) => (
@@ -585,18 +617,22 @@ export default function PaymentAccountsPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType]   = useState('')
   const [filterBankId, setFilterBankId] = useState('')
+  const [filterProviderId, setFilterProviderId] = useState('')
   const [createOpen, setCreateOpen]   = useState(false)
   const [editAccount, setEditAccount] = useState<PaymentAccount | null>(null)
   const [formError, setFormError]     = useState<string | null>(null)
 
   const { data: banksData } = useBanks()
   const banks = banksData?.data ?? []
+  const { data: providersData } = usePaymentProviders(1, 100)
+  const providers = providersData?.data ?? []
 
   const limit = 20
   const filters = {
     status: filterStatus || undefined,
     type:   filterType   || undefined,
     bankId: filterBankId || undefined,
+    providerId: filterProviderId || undefined,
   }
 
   const { data, isLoading, error } = usePaymentAccounts(filters, page, limit)
@@ -626,8 +662,8 @@ export default function PaymentAccountsPage() {
     try {
       const payload =
         input.type === 'bank'
-          ? { type: input.type, bankId: input.bankId, name: input.name, accountNumber: input.accountNumber, environment: input.environment, dailyLimit: input.dailyLimit }
-          : { type: input.type, cryptoIds: input.cryptoIds, name: input.name, accountNumber: input.accountNumber, environment: input.environment, dailyLimit: input.dailyLimit }
+          ? { type: input.type, bankId: input.bankId, name: input.name, accountNumber: input.accountNumber, environment: input.environment, dailyLimit: input.dailyLimit, providerId: input.providerId || null }
+          : { type: input.type, cryptoIds: input.cryptoIds, name: input.name, accountNumber: input.accountNumber, environment: input.environment, dailyLimit: input.dailyLimit, providerId: input.providerId || null }
       await createAccount.mutateAsync(payload)
       setCreateOpen(false)
     } catch (err) {
@@ -644,6 +680,7 @@ export default function PaymentAccountsPage() {
         accountNumber: input.accountNumber,
         environment:   input.environment,
         dailyLimit:    input.dailyLimit,
+        providerId:    input.providerId || null,
         ...(input.type === 'bank'   && input.bankId      && { bankId: input.bankId }),
         ...(input.type === 'crypto' && input.cryptoIds.length > 0 && { cryptoIds: input.cryptoIds }),
       })
@@ -662,6 +699,7 @@ export default function PaymentAccountsPage() {
       accountNumber: a.accountNumber,
       environment:   a.environment,
       dailyLimit:    a.dailyLimit,
+      providerId:    a.providerId ?? '',
     }
   }
 
@@ -732,10 +770,28 @@ export default function PaymentAccountsPage() {
           </div>
         )}
 
+        {/* Tedarik Firması */}
+        {providers.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Tedarik</span>
+            <Select value={filterProviderId || '_all'} onValueChange={(v) => { setFilterProviderId(v === '_all' ? '' : v); setPage(1) }}>
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Tümü</SelectItem>
+                {providers.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Sıfırla */}
-        {(filterStatus || filterType || filterBankId) && (
+        {(filterStatus || filterType || filterBankId || filterProviderId) && (
           <button
-            onClick={() => { setFilterStatus(''); setFilterType(''); setFilterBankId(''); setPage(1) }}
+            onClick={() => { setFilterStatus(''); setFilterType(''); setFilterBankId(''); setFilterProviderId(''); setPage(1) }}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
             Filtreleri temizle

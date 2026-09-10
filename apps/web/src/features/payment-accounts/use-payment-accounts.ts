@@ -11,7 +11,7 @@ import type {
 } from '@panel/types'
 
 export function usePaymentAccounts(
-  filters: { status?: string; type?: string; bankId?: string } = {},
+  filters: { status?: string; type?: string; bankId?: string; providerId?: string } = {},
   page = 1,
   limit = 20,
 ) {
@@ -19,6 +19,7 @@ export function usePaymentAccounts(
   if (filters.status) params.set('status', filters.status)
   if (filters.type)   params.set('type', filters.type)
   if (filters.bankId) params.set('bankId', filters.bankId)
+  if (filters.providerId) params.set('providerId', filters.providerId)
 
   return useQuery({
     queryKey: ['payment-accounts', filters, page, limit],

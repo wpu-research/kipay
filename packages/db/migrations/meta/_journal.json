@@ -302,6 +302,13 @@
       "when": 1773958896218,
       "tag": "0042_transaction_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1773958897218,
+      "tag": "0043_payment_account_provider",
+      "breakpoints": true
     }
   ]
 }

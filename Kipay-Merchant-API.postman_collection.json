@@ -1,0 +1,689 @@
+{
+  "info": {
+    "_postman_id": "8498fbef-d2b1-4a1c-bdb1-49ef8c51a3ec",
+    "name": "Kipay Merchant API — api.kipayz.com",
+    "description": "Kipay merchant entegrasyon test koleksiyonu.\n\n## Kurulum\n1. Collection → Variables: `merchant_key_id` (key_…) ve `merchant_secret` (sk_…) değerlerini gir. Secret panelden API key oluşturulduğunda sadece bir kez gösterilir.\n2. `base_url` varsayılan olarak https://api.kipayz.com — sandbox için değiştirin.\n3. İmza (X-Signature) collection-level pre-request script ile otomatik hesaplanır; elle header eklemeyin.\n\n## Auth şeması\n- `X-API-Key`: keyId (secret ağda dolaşmaz)\n- `X-Timestamp`: ISO 8601, sunucu saatiyle ±5 dk\n- `X-Nonce`: her istekte benzersiz UUID (tekrar = 401 NONCE_REPLAY)\n- `X-Signature`: `sha256=` + HMAC-SHA256(secret, `timestamp\\nnonce\\nrawBody`) hex\n\n## Akış\nYatırım: initiate → (oyuncu ödeme yapar) → player-confirmed → panel onaylar → callback COMPLETED\nÇekim:  withdrawal/request → panel onaylar → callback\nSandbox'ta `simulate-callback` ile panel onayını taklit edebilirsiniz.\n\n## Kurallar\n- `userInfo.memberId` == `externalUserId` olmalı (USER_ID_MISMATCH)\n- `identityNumber` geçerli TC Kimlik (11 hane + checksum); test: 10000000146\n- `phone` E.164: +90XXXXXXXXXX\n- Çekimde IBAN: TR + 24 rakam; `withdrawalAccountName` ad-soyad ile eşleşmeli (NAME_MISMATCH)\n- IP whitelist aktifse istek atan sunucu IP'si panelde tanımlı olmalı\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// ── Kipay HMAC imzalama (her istekte otomatik çalışır) ──",
+          "const keyId  = pm.collectionVariables.get('merchant_key_id');",
+          "const secret = pm.collectionVariables.get('merchant_secret');",
+          "if (!keyId || !secret) { console.error('merchant_key_id / merchant_secret eksik!'); return; }",
+          "",
+          "const timestamp = new Date().toISOString();                 // ISO 8601 (epoch saniye de kabul edilir)",
+          "const nonce     = pm.variables.replaceIn('{{$guid}}');      // her istekte benzersiz",
+          "const rawBody   = (pm.request.body && pm.request.body.mode === 'raw') ? pm.variables.replaceIn(pm.request.body.raw) : '';",
+          "",
+          "// canonical = timestamp \\n nonce \\n rawBody  — body imzalandığı haliyle byte-byte aynı gönderilmeli",
+          "const canonical = timestamp + '\\n' + nonce + '\\n' + rawBody;",
+          "const signature = CryptoJS.HmacSHA256(canonical, secret).toString();",
+          "",
+          "pm.request.headers.upsert({ key: 'X-API-Key',   value: keyId });          // SADECE keyId — secret gönderilmez",
+          "pm.request.headers.upsert({ key: 'X-Timestamp', value: timestamp });",
+          "pm.request.headers.upsert({ key: 'X-Nonce',     value: nonce });",
+          "pm.request.headers.upsert({ key: 'X-Signature', value: 'sha256=' + signature });"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.kipayz.com",
+      "description": "Production API. Sandbox için değiştirin."
+    },
+    {
+      "key": "merchant_key_id",
+      "value": "",
+      "description": "Panelden alınan keyId (key_xxx)"
+    },
+    {
+      "key": "merchant_secret",
+      "value": "",
+      "description": "Panelden alınan secret (sk_xxx) — bir kez gösterilir"
+    },
+    {
+      "key": "external_user_id",
+      "value": "player-1001",
+      "description": "Sitenizdeki üye ID"
+    },
+    {
+      "key": "transaction_id",
+      "value": "",
+      "description": "Initiate/withdrawal sonrası otomatik dolar"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Sağlık",
+      "item": [
+        {
+          "name": "Health (imzasız)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/system/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "system",
+                "health"
+              ]
+            },
+            "description": "Bağlantı ve SSL testi. Auth gerekmez."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ödeme yöntemleri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/payment-methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "payment-methods"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Döviz kurları",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/exchange-rates",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "exchange-rates"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Yatırım (Deposit)",
+      "item": [
+        {
+          "name": "1.1 Yatırım başlat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/deposit/initiate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "deposit",
+                "initiate"
+              ]
+            },
+            "description": "Yanıt: txId, status (PENDING/STARTED). Hesap bilgisi (depositAddress, accountName, bankName) panelde işlem claim edilince `transaction.account_assigned` webhook'u ile gelir; yanıt içinde de dönebilir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"500.00\",\n  \"currency\": \"TRY\",\n  \"userInfo\": {\n    \"identityNumber\": \"10000000146\",\n    \"memberId\": \"{{external_user_id}}\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "if (b.txId) { pm.collectionVariables.set('transaction_id', b.txId); console.log('txId:', b.txId, 'status:', b.status); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Oyuncu 'ödedim' dedi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/deposit/player-confirmed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "deposit",
+                "player-confirmed"
+              ]
+            },
+            "description": "Oyuncu transferi yaptığını bildirdiğinde çağrılır. Panelde işlem öne çıkar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txId\": \"{{transaction_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Yatırım onayla (alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/deposit/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "deposit",
+                "confirm"
+              ]
+            },
+            "description": "Spec uyumlu alias. Yanıt status: PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txId\": \"{{transaction_id}}\",\n  \"currency\": \"TRY\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Çekim (Withdrawal)",
+      "item": [
+        {
+          "name": "2.1 Çekim talebi — IBAN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/withdrawal/request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "withdrawal",
+                "request"
+              ]
+            },
+            "description": "withdrawalAccountName, userInfo ad-soyad ile eşleşmeli (TR karakter/case duyarsız).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"250.00\",\n  \"currency\": \"TRY\",\n  \"paymentMethod\": \"IBAN\",\n  \"withdrawalAddress\": \"TR330006100519786457841326\",\n  \"withdrawalAccountName\": \"Test Kullanici\",\n  \"userInfo\": {\n    \"identityNumber\": \"10000000146\",\n    \"memberId\": \"{{external_user_id}}\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "if (b.txId) { pm.collectionVariables.set('transaction_id', b.txId); console.log('txId:', b.txId, 'status:', b.status); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Çekim talebi — Kripto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/withdrawal/request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "withdrawal",
+                "request"
+              ]
+            },
+            "description": "paymentMethod değerleri için 'Ödeme yöntemleri' isteğine bakın.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"100.00\",\n  \"currency\": \"USDT\",\n  \"paymentMethod\": \"TRC20\",\n  \"withdrawalAddress\": \"TXYZabc1234567890abcdefghijklmnopqrs\",\n  \"withdrawalAccountName\": \"Test Kullanici\",\n  \"userInfo\": {\n    \"identityNumber\": \"10000000146\",\n    \"memberId\": \"{{external_user_id}}\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "if (b.txId) { pm.collectionVariables.set('transaction_id', b.txId); console.log('txId:', b.txId, 'status:', b.status); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. İşlem sorgu",
+      "item": [
+        {
+          "name": "İşlem detayı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/transactions/{{transaction_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "transactions",
+                "{{transaction_id}}"
+              ]
+            },
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "İşlem listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/transactions?type=deposit&status=PENDING&page=1&limit=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "deposit"
+                },
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Filtreler opsiyonel: status, type, dateFrom, dateTo (ISO 8601), page, limit."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Sandbox",
+      "item": [
+        {
+          "name": "Callback simüle et",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/sandbox/simulate-callback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "sandbox",
+                "simulate-callback"
+              ]
+            },
+            "description": "Sadece sandbox. status: COMPLETED | REJECTED | TIMEOUT. Callback URL'inize imzalı webhook gönderilir.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txId\": \"{{transaction_id}}\",\n  \"status\": \"COMPLETED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Hata senaryoları",
+      "item": [
+        {
+          "name": "Geçersiz TC → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/deposit/initiate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "deposit",
+                "initiate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"50.00\",\n  \"currency\": \"TRY\",\n  \"userInfo\": {\n    \"identityNumber\": \"12345678901\",\n    \"memberId\": \"{{external_user_id}}\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "memberId uyumsuz → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/deposit/initiate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "deposit",
+                "initiate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"50.00\",\n  \"currency\": \"TRY\",\n  \"userInfo\": {\n    \"identityNumber\": \"10000000146\",\n    \"memberId\": \"baska-uye\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Geçersiz IBAN → 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/merchant/v1/withdrawal/request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "merchant",
+                "v1",
+                "withdrawal",
+                "request"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"externalUserId\": \"{{external_user_id}}\",\n  \"amount\": \"50.00\",\n  \"currency\": \"TRY\",\n  \"paymentMethod\": \"IBAN\",\n  \"withdrawalAddress\": \"TR123\",\n  \"withdrawalAccountName\": \"Test Kullanici\",\n  \"userInfo\": {\n    \"identityNumber\": \"10000000146\",\n    \"memberId\": \"{{external_user_id}}\",\n    \"firstName\": \"Test\",\n    \"middleName\": \"\",\n    \"lastName\": \"Kullanici\",\n    \"phone\": \"+905551234567\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

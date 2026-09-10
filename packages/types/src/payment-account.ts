@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { PaginatedResponseSchema } from './common.js'
 import { BankSchema } from './bank.js'
 import { CryptoSchema } from './crypto.js'
+import { PaymentProviderSchema } from './payment-provider.js'
 
 const amountRegex = /^\d+(\.\d{1,2})?$/
 
@@ -14,6 +15,7 @@ export const CreatePaymentAccountSchema = z.discriminatedUnion('type', [
     accountNumber: z.string().min(4).max(256),
     environment:   z.enum(['sandbox', 'production']),
     dailyLimit:    z.string().regex(amountRegex, 'Geçerli tutar formatı: "500.00"'),
+    providerId:    z.string().uuid().nullable().optional(),
   }),
   z.object({
     type:          z.literal('crypto'),
@@ -22,6 +24,7 @@ export const CreatePaymentAccountSchema = z.discriminatedUnion('type', [
     accountNumber: z.string().min(4).max(256),
     environment:   z.enum(['sandbox', 'production']),
     dailyLimit:    z.string().regex(amountRegex, 'Geçerli tutar formatı: "500.00"'),
+    providerId:    z.string().uuid().nullable().optional(),
   }),
 ])
 
@@ -32,6 +35,7 @@ export const UpdatePaymentAccountSchema = z.object({
   cryptoIds:     z.array(z.string().uuid()).min(1).optional(),
   environment:   z.enum(['sandbox', 'production']).optional(),
   dailyLimit:    z.string().regex(amountRegex, 'Geçerli tutar formatı: "500.00"').optional(),
+  providerId:    z.string().uuid().nullable().optional(),
 }).strict().refine(
   (d) => Object.values(d).some((v) => v !== undefined),
   { message: 'En az bir alan güncellenmeli.' },
@@ -61,6 +65,8 @@ export const PaymentAccountSchema = z.object({
   dailyUsed:       z.string(),
   lastResetAt:     z.string().datetime({ offset: true }).nullable(),
   ownedByUserId:   z.string().uuid().nullable(),
+  providerId:      z.string().uuid().nullable(),
+  provider:        PaymentProviderSchema.nullable(),
   createdAt:       z.string().datetime({ offset: true }),
   updatedAt:       z.string().datetime({ offset: true }),
 })

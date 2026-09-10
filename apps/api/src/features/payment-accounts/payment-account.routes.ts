@@ -26,6 +26,7 @@ function serializeAccount(a: Awaited<ReturnType<typeof paymentAccountService.get
   return {
     ...a,
     bank:       a.bank ? { ...a.bank, createdAt: a.bank.createdAt.toISOString() } : null,
+    provider:   a.provider ? { ...a.provider, createdAt: a.provider.createdAt.toISOString(), updatedAt: a.provider.updatedAt.toISOString() } : null,
     cryptos:    a.cryptos.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
     lastResetAt: a.lastResetAt ? a.lastResetAt.toISOString() : null,
     createdAt:   a.createdAt.toISOString(),
@@ -62,16 +63,17 @@ export const paymentAccountRoutes: FastifyPluginAsyncZod = async (app) => {
         status: z.enum(['active', 'inactive']).optional(),
         type:   z.enum(['bank', 'crypto']).optional(),
         bankId: z.string().uuid().optional(),
+        providerId: z.string().uuid().optional(),
         page:   z.coerce.number().int().min(1).default(1),
         limit:  z.coerce.number().int().min(1).max(100).default(20),
       }),
       response: { 200: PaymentAccountListResponseSchema },
     },
   }, async (request, reply) => {
-    const { status, type, bankId, page, limit } = request.query
+    const { status, type, bankId, providerId, page, limit } = request.query
     const result = await paymentAccountService.listAccounts(
       request.user.tenantId,
-      { status, type, bankId },
+      { status, type, bankId, providerId },
       page,
       limit,
     )

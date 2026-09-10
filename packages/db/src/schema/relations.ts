@@ -70,6 +70,7 @@ export const paymentProviderCategoriesRelations = relations(paymentProviderCateg
 export const paymentAccountsRelations = relations(paymentAccounts, ({ one, many }) => ({
   tenant:       one(tenants, { fields: [paymentAccounts.tenantId], references: [tenants.id] }),
   bank:         one(banks,   { fields: [paymentAccounts.bankId],   references: [banks.id] }),
+  provider:     one(paymentProviders, { fields: [paymentAccounts.providerId], references: [paymentProviders.id] }),
   cryptos:      many(paymentAccountCryptos),
   transactions: many(transactions),
 }))
