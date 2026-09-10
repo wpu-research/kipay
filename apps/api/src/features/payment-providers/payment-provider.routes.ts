@@ -13,6 +13,7 @@ import {
 } from '@panel/types'
 import { paymentProviderService } from './payment-provider.service.js'
 import { authenticate } from '../../middleware/auth.js'
+import { requireTenantStaff } from '../../middleware/roles.js'
 import { AppError } from '../../errors/app-error.js'
 
 const ALLOWED_ROLES = ['super_admin', 'tenant_admin'] as const
@@ -36,9 +37,9 @@ export const paymentProviderRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // --- PAYMENT PROVIDERS ---
 
-  // GET /payment-providers
+  // GET /payment-providers — listeleme tüm tenant personeline açık (filtre / hesap formu için); yazma işlemleri tenant_admin
   app.get('/', {
-    preHandler: [authenticate, requireTenantAdminOrSuperAdmin],
+    preHandler: [authenticate, requireTenantStaff],
     config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     schema: {
       tags: ['Payment Providers'],

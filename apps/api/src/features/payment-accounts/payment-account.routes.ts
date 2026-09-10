@@ -11,6 +11,7 @@ import {
 } from '@panel/types'
 import { paymentAccountService } from './payment-account.service.js'
 import { authenticate } from '../../middleware/auth.js'
+import { requireTenantStaff } from '../../middleware/roles.js'
 import { AppError } from '../../errors/app-error.js'
 
 const ALLOWED_ROLES = ['tenant_admin', 'finans_admin', 'super_admin'] as const
@@ -52,9 +53,9 @@ export const paymentAccountRoutes: FastifyPluginAsyncZod = async (app) => {
     return reply.status(201).send({ data: serializeAccount(account) })
   })
 
-  // GET /payment-accounts
+  // GET /payment-accounts — tenant personeli (manuel yatırım ve transfer için hesap seçimi); yazma işlemleri ALLOWED_ROLES
   app.get('/', {
-    preHandler: [authenticate, requireFinansAdmin],
+    preHandler: [authenticate, requireTenantStaff],
     config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     schema: {
       tags: ['Payment Accounts'],

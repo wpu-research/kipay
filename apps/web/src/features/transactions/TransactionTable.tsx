@@ -17,7 +17,7 @@ function formatAmount(tx: TxItem): string {
   return `${parseFloat(tx.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ${cur}`
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, revised }: { status: string; revised?: boolean }) {
   const map: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
     PENDING:    { label: 'Yeni',       variant: 'secondary' },
     PROCESSING: { label: 'İşlemde',   variant: 'default' },
@@ -30,7 +30,16 @@ function StatusBadge({ status }: { status: string }) {
     STARTED:    { label: 'Başladı',   variant: 'outline' },
   }
   const cfg = map[status] ?? { label: status, variant: 'outline' as const }
-  return <Badge variant={cfg.variant}>{cfg.label}</Badge>
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Badge variant={cfg.variant}>{cfg.label}</Badge>
+      {revised && (
+        <span title="Düzeltilmiş: red/zaman aşımı sonrası onaya çevrildi" className="rounded px-1 py-0.5 text-[9px] font-semibold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          DÜZ
+        </span>
+      )}
+    </span>
+  )
 }
 
 function TypeBadge({ tx }: { tx: TxItem }) {
@@ -83,7 +92,7 @@ export function TransactionTable({ data, currentUserId: _currentUserId, userRole
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs min-w-[800px]">
+      <table className="w-full text-xs min-w-[1000px]">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">
             <th className="px-3 py-2">ID</th>
@@ -91,7 +100,9 @@ export function TransactionTable({ data, currentUserId: _currentUserId, userRole
             <th className="px-3 py-2">Tip</th>
             <th className="px-3 py-2">Site</th>
             <th className="px-3 py-2">Kullanıcı</th>
+            <th className="px-3 py-2">Ad Soyad</th>
             <th className="px-3 py-2">Banka/Hesap</th>
+            <th className="px-3 py-2">Tedarik</th>
             <th className="px-3 py-2">Miktar</th>
             <th className="px-3 py-2">Durum</th>
             <th className="px-3 py-2">Tarih</th>
@@ -132,14 +143,20 @@ export function TransactionTable({ data, currentUserId: _currentUserId, userRole
                 <td className="px-3 py-2 font-medium text-foreground max-w-[120px] truncate">
                   {tx.externalUserId || '—'}
                 </td>
+                <td className="px-3 py-2 text-muted-foreground max-w-[120px] truncate" title={tx.userFullName ?? undefined}>
+                  {tx.userFullName ?? '—'}
+                </td>
                 <td className="px-3 py-2 text-muted-foreground max-w-[100px] truncate">
                   {tx.paymentAccountName ?? '—'}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground max-w-[100px] truncate" title={tx.providerName ?? undefined}>
+                  {tx.providerName ?? '—'}
                 </td>
                 <td className="px-3 py-2 font-bold font-mono text-foreground whitespace-nowrap">
                   {formatAmount(tx)}
                 </td>
                 <td className="px-3 py-2">
-                  <StatusBadge status={tx.status} />
+                  <StatusBadge status={tx.status} revised={tx.revised} />
                 </td>
                 <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                   {new Date(tx.createdAt).toLocaleString('tr-TR', {

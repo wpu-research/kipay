@@ -5,7 +5,8 @@ import { requireTransactionProcessor, requireTenantAdmin, requireTenantOrFinansA
 import { AppError } from '../../errors/app-error.js'
 import { transactionService } from './transaction.service.js'
 import * as sseManager from '../../sse/sse-manager.js'
-import { ClaimTransactionResponseSchema, TransactionListSchema, TransactionItemSchema, TransactionStatusEnum, ApproveRejectResponseSchema, TransactionDetailSchema, AddCommentSchema, ResolveTransactionSchema, ApproveWithAmountSchema } from '@panel/types'
+import { ClaimTransactionResponseSchema, TransactionListSchema, TransactionItemSchema, TransactionStatusFilterEnum, ApproveRejectResponseSchema, TransactionDetailSchema, AddCommentSchema, ResolveTransactionSchema, ApproveWithAmountSchema, ManualDepositSchema, TransferTransactionSchema } from '@panel/types'
+import * as XLSX from 'xlsx'
 import type { TransactionStatus } from '@panel/types'
 import type { TransactionComment } from '@panel/db'
 
@@ -34,7 +35,14 @@ function serializeTransaction(tx: {
   exchangeRate?: string | null
   playerConfirmed?: boolean | null
   playerConfirmedAt?: Date | null
+  revised?: boolean | null
+  previousStatus?: TransactionStatus | null
+  userFirstName?: string | null
+  userMiddleName?: string | null
+  userLastName?: string | null
+  paymentAccount?: { provider?: { name: string } | null } | null
 }) {
+  const fullName = [tx.userFirstName, tx.userMiddleName, tx.userLastName].map((p) => p?.trim()).filter(Boolean).join(' ')
   return {
     ...tx,
     type:               tx.type             ?? null,
@@ -52,12 +60,51 @@ function serializeTransaction(tx: {
     exchangeRate:       tx.exchangeRate      ?? null,
     playerConfirmed:    tx.playerConfirmed   ?? false,
     playerConfirmedAt:  tx.playerConfirmedAt?.toISOString() ?? null,
+    revised:            tx.revised ?? false,
+    previousStatus:     tx.previousStatus ?? null,
+    providerName:       tx.paymentAccount?.provider?.name ?? null,
+    userFullName:       fullName || null,
+    // İlişkili nesneler yanıt şemasında yok — sızdırma
+    paymentAccount:     undefined,
+    userFirstName:      undefined,
+    userMiddleName:     undefined,
+    userLastName:       undefined,
   }
 }
 
 function serializeComment(c: TransactionComment) {
   return { ...c, createdAt: c.createdAt.toISOString() }
 }
+
+// Liste satırı: ilişkili merchant / hesap adlarını düzleştir
+function serializeListItem(tx: any) {
+  return {
+    ...serializeTransaction(tx),
+    merchantName:       tx.merchant?.merchantName ?? null,
+    paymentAccountName: tx.paymentAccount
+      ? (tx.paymentAccount.bank?.name ?? tx.paymentAccount.name)
+      : (tx.withdrawalBankName ?? tx.withdrawalAccountName ?? null),
+    withdrawalAccountName: tx.withdrawalAccountName ?? null,
+    withdrawalAddress:     tx.withdrawalAddress     ?? null,
+  }
+}
+
+// GET / ve GET /export ortak filtreleri
+const ListQuerySchema = z.object({
+  status:      TransactionStatusFilterEnum.optional(),
+  type:        z.enum(['deposit', 'withdrawal']).optional(),
+  merchantId:  z.string().uuid().optional(),
+  paymentType: z.enum(['bank', 'crypto']).optional(),
+  bankId:      z.string().uuid().optional(),
+  providerId:  z.string().uuid().optional(),
+  dateFrom:    z.string().optional(),
+  dateTo:      z.string().optional(),
+  minAmount:   z.coerce.number().positive().optional(),
+  maxAmount:   z.coerce.number().positive().optional(),
+  search:      z.string().optional(),
+  searchType:  z.enum(['kullanici', 'iban', 'islem_id']).optional(),
+})
+const EXPORT_MAX_ROWS = 5000
 
 export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
@@ -146,13 +193,23 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
         withdrawalAccountName: (tx as any).withdrawalAccountName ?? null,
         withdrawalAddress:     (tx as any).withdrawalAddress     ?? null,
         withdrawalBankName:    (tx as any).withdrawalBankName    ?? null,
+        userInfo: {
+          identityNumber: tx.userIdentityNumber ?? null,
+          memberId:       tx.userMemberId       ?? null,
+          firstName:      tx.userFirstName      ?? null,
+          middleName:     tx.userMiddleName     || null,
+          lastName:       tx.userLastName       ?? null,
+          phone:          tx.userPhone          ?? null,
+        },
         comments:              tx.comments.map(serializeComment),
         paymentAccount: pa
           ? {
+              id:            tx.paymentAccountId,
               type:          pa.type,
               name:          pa.name,
               accountNumber: pa.accountNumber,
               bank:          pa.bank ? { name: pa.bank.name } : null,
+              provider:      pa.provider ? { id: pa.provider.id, name: pa.provider.name } : null,
               cryptos:       pa.cryptos.map((c) => ({ crypto: { name: c.crypto.name, symbol: c.crypto.symbol } })),
             }
           : null,
@@ -316,18 +373,7 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
     schema: {
       tags: ['Transactions'],
       summary: 'İşlem listesi',
-      querystring: z.object({
-        status:      TransactionStatusEnum.optional(),
-        type:        z.enum(['deposit', 'withdrawal']).optional(),
-        merchantId:  z.string().uuid().optional(),
-        paymentType: z.enum(['bank', 'crypto']).optional(),
-        bankId:      z.string().uuid().optional(),
-        dateFrom:    z.string().optional(),
-        dateTo:      z.string().optional(),
-        minAmount:   z.coerce.number().positive().optional(),
-        maxAmount:   z.coerce.number().positive().optional(),
-        search:      z.string().optional(),
-        searchType:  z.enum(['kullanici', 'iban', 'islem_id']).optional(),
+      querystring: ListQuerySchema.extend({
         page:        z.coerce.number().int().min(1).max(1000).default(1),
         limit:       z.coerce.number().int().min(1).max(100).default(20),
       }),
@@ -335,33 +381,54 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
     },
   }, async (request) => {
     const { tenantId } = request.user
-    const { status, type, merchantId, paymentType, bankId, dateFrom, dateTo, minAmount, maxAmount, search, searchType, page, limit } = request.query
-
-    const result = await transactionService.listTransactions(tenantId, {
-      merchantId,
-      status,
-      type,
-      paymentType,
-      bankId,
-      dateFrom,
-      dateTo,
-      minAmount,
-      maxAmount,
-      search,
-      searchType,
-      page,
-      limit,
-    })
+    const result = await transactionService.listTransactions(tenantId, request.query)
     return {
-      data: result.data.map((tx) => ({
-        ...serializeTransaction(tx),
-        merchantName:       (tx as any).merchant?.merchantName       ?? null,
-        paymentAccountName: (tx as any).paymentAccount
-          ? ((tx as any).paymentAccount.bank?.name ?? (tx as any).paymentAccount.name)
-          : ((tx as any).withdrawalBankName ?? (tx as any).withdrawalAccountName ?? null),
-      })),
+      data: result.data.map(serializeListItem),
       meta: result.meta,
     }
+  })
+
+  // GET /export — mevcut filtrelerle XLSX indir (tenant_admin / finans_admin / finans_operator)
+  fastify.get('/export', {
+    preHandler: [authenticate, requireTransactionProcessor],
+    config:     { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Transactions'],
+      summary: 'İşlemleri XLSX olarak dışa aktar',
+      querystring: ListQuerySchema,
+    },
+  }, async (request, reply) => {
+    const { tenantId } = request.user
+    const result = await transactionService.listTransactions(tenantId, { ...request.query, page: 1, limit: EXPORT_MAX_ROWS })
+    const rows = result.data.map(serializeListItem)
+
+    const header = [
+      'İşlem ID', 'Tip', 'Durum', 'Düzeltilmiş', 'Site', 'Kullanıcı Adı', 'Ad Soyad', 'Tutar', 'Para Birimi', 'TRY Karşılığı',
+      'Banka / Hesap', 'Tedarik Firması', 'Çekim Hesap Sahibi', 'Çekim IBAN / Adres', 'Ödeme Yöntemi',
+      'Talep Zamanı', 'Sonuçlanma Zamanı', 'Callback', 'Not',
+    ]
+    const typeLabel   = (t: string | null) => t === 'deposit' ? 'Yatırım' : t === 'withdrawal' ? 'Çekim' : ''
+    const fmtDate     = (iso: string | null) => iso ? new Date(iso).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }) : ''
+    const body = rows.map((r) => [
+      r.id, typeLabel(r.type), r.status, r.revised ? 'Evet' : '', r.merchantName ?? '', r.externalUserId, r.userFullName ?? '',
+      Number(r.amount), r.currency, r.amountTry ? Number(r.amountTry) : '',
+      r.paymentAccountName ?? '', r.providerName ?? '', r.withdrawalAccountName ?? '', r.withdrawalAddress ?? '', r.paymentMethod ?? '',
+      fmtDate(r.createdAt), fmtDate(r.resolvedAt), r.callbackStatus ?? '', r.note ?? '',
+    ])
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.aoa_to_sheet([header, ...body])
+    ws['!cols'] = header.map((h, i) => ({ wch: i === 0 ? 38 : Math.max(12, h.length + 4) }))
+    XLSX.utils.book_append_sheet(wb, ws, 'Islemler')
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer
+
+    request.auditEntry = { action: 'transaction.export', resourceType: 'transaction', resourceId: tenantId, tenantId, changes: { rows: rows.length, filters: request.query } }
+
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    return reply
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="islemler-${stamp}.xlsx"`)
+      .send(buf)
   })
 
   // POST /manual-withdrawal — tenant_admin / finans_admin: manuel çekim oluştur
@@ -408,6 +475,74 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
     }
 
     return reply.status(201).send(serializeTransaction(tx))
+  })
+
+  // POST /manual-deposit — tenant_admin / finans_admin: manuel yatırım oluştur (hesap baştan atanır, PENDING havuza düşer)
+  fastify.post('/manual-deposit', {
+    preHandler: [authenticate, requireTenantOrFinansAdmin],
+    config:     { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Transactions'],
+      summary: 'Manuel yatırım oluştur',
+      body:     ManualDepositSchema,
+      response: { 201: TransactionItemSchema },
+    },
+  }, async (request, reply) => {
+    const { tenantId } = request.user
+    const { merchantId, paymentAccountId, externalUserId, amount, currency, note, userInfo } = request.body
+
+    const tx = await transactionService.createManualDeposit({
+      tenantId, merchantId, paymentAccountId, externalUserId, amount, currency, note, userInfo,
+    })
+
+    request.auditEntry = {
+      action:       'transaction.manual_deposit_created',
+      resourceType: 'transaction',
+      resourceId:   tx.id,
+      tenantId,
+      changes:      { merchantId, paymentAccountId, externalUserId, amount, currency },
+    }
+
+    return reply.status(201).send(serializeTransaction(tx))
+  })
+
+  // POST /:id/transfer — talebi farklı tedarik firmasının hesabına aktar (tenant_admin / finans_admin)
+  fastify.post('/:id/transfer', {
+    preHandler: [authenticate, requireTenantOrFinansAdmin],
+    config:     { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Transactions'],
+      summary: 'İşlemi başka tedarik firmasına transfer et',
+      params:   z.object({ id: z.string().uuid() }),
+      body:     TransferTransactionSchema,
+      response: { 200: ApproveRejectResponseSchema },
+    },
+  }, async (request, reply) => {
+    const { userId, tenantId, role } = request.user
+    const { id } = request.params
+    const { paymentAccountId, reason } = request.body
+
+    const result = await transactionService.transferTransaction({
+      tenantId, userId, userRole: role, transactionId: id, paymentAccountId, reason,
+    })
+    request.auditEntry = {
+      action:       'transaction.transfer',
+      resourceType: 'transaction',
+      resourceId:   id,
+      tenantId,
+      changes:      { fromPaymentAccountId: result.fromAccountId, toPaymentAccountId: paymentAccountId, reason: reason ?? null },
+    }
+
+    // İşlem zaten PROCESSING ise site yeni hesap bilgisini almalı
+    if (result.tx.status === 'PROCESSING') {
+      request.server.boss.send(
+        'callback-retry',
+        { transactionId: result.tx.id, expectedStatus: 'PROCESSING' },
+        { retryLimit: 4, retryDelay: 30, singletonKey: `transfer-${result.tx.id}-${Date.now()}`, expireInSeconds: 300 },
+      ).catch((err: unknown) => request.log.error({ err }, '[transfer] callback-retry kuyruğa eklenemedi'))
+    }
+
+    return reply.send(serializeTransaction(result.tx))
   })
 
   // POST /:id/approve-with-amount — farklı tutarla onayla

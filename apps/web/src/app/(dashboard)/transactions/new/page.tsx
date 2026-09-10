@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useMe } from '@/features/auth/use-me'
 import { useMerchants } from '@/features/merchants/use-merchants'
 import { useTransactions, useClaimTransaction } from '@/features/transactions/use-transactions'
-import { useCreateManualWithdrawal } from '@/features/transactions/use-manual-withdrawal'
+import { useCreateManualWithdrawal, useCreateManualDeposit } from '@/features/transactions/use-manual-withdrawal'
+import { usePaymentAccounts } from '@/features/payment-accounts/use-payment-accounts'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ApiError } from '@/lib/api-client'
 
 const PAYMENT_METHODS = [
@@ -126,6 +128,143 @@ function ManualWithdrawalForm({ merchants }: { merchants: { id: string; merchant
   )
 }
 
+function ManualDepositForm({ merchants }: { merchants: { id: string; merchantName: string }[] }) {
+  const router = useRouter()
+  const createDeposit = useCreateManualDeposit()
+  const { data: accountsData } = usePaymentAccounts({ status: 'active' }, 1, 100)
+  const accounts = accountsData?.data ?? []
+
+  const [form, setForm] = useState({
+    merchantId:       '',
+    paymentAccountId: '',
+    externalUserId:   '',
+    amount:           '',
+    currency:         'TRY',
+    note:             '',
+    identityNumber:   '',
+    memberId:         '',
+    firstName:        '',
+    middleName:       '',
+    lastName:         '',
+    phone:            '',
+  })
+  const [error, setError] = useState<string | null>(null)
+
+  const isValid =
+    form.merchantId && form.paymentAccountId && form.externalUserId.trim() &&
+    form.amount && /^\d+(\.\d{1,2})?$/.test(form.amount) && form.currency.trim()
+
+  function set(key: string, value: string) {
+    setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const userInfo = {
+      identityNumber: form.identityNumber.trim() || undefined,
+      memberId:       form.memberId.trim()       || undefined,
+      firstName:      form.firstName.trim()      || undefined,
+      middleName:     form.middleName.trim()     || undefined,
+      lastName:       form.lastName.trim()       || undefined,
+      phone:          form.phone.trim()          || undefined,
+    }
+    const hasUserInfo = Object.values(userInfo).some(Boolean)
+    try {
+      await createDeposit.mutateAsync({
+        merchantId:       form.merchantId,
+        paymentAccountId: form.paymentAccountId,
+        externalUserId:   form.externalUserId.trim(),
+        amount:           form.amount,
+        currency:         form.currency,
+        note:             form.note.trim() || undefined,
+        userInfo:         hasUserInfo ? userInfo : undefined,
+      })
+      toast.success('Yatırım talebi oluşturuldu')
+      router.push('/transactions')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'İşlem oluşturulamadı.')
+    }
+  }
+
+  const label = 'text-xs font-medium uppercase tracking-wide text-muted-foreground'
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className={label}>Site *</label>
+          <Select value={form.merchantId || '_none'} onValueChange={(v) => set('merchantId', v === '_none' ? '' : v)}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Site seçin" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">Site seçin</SelectItem>
+              {merchants.map((m) => <SelectItem key={m.id} value={m.id}>{m.merchantName}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className={label}>Paranın Geldiği Hesap *</label>
+          <Select value={form.paymentAccountId || '_none'} onValueChange={(v) => set('paymentAccountId', v === '_none' ? '' : v)}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Hesap seçin" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">Hesap seçin</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {(a.provider?.name ?? 'Tedarikçisiz')} / {a.name} — {a.bank?.name ?? a.accountNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className={label}>Kullanıcı Adı (externalUserId) *</label>
+          <Input className="h-9" placeholder="oyuncu123" value={form.externalUserId} onChange={(e) => set('externalUserId', e.target.value)} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className={label}>Tutar *</label>
+          <Input className="h-9 font-mono" placeholder="500.00" value={form.amount} onChange={(e) => set('amount', e.target.value)} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className={label}>Para Birimi</label>
+          <Input className="h-9 font-mono" value={form.currency} onChange={(e) => set('currency', e.target.value.toUpperCase())} />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className={label}>Not</label>
+          <Input className="h-9" placeholder="Örn: dekont elden alındı" value={form.note} onChange={(e) => set('note', e.target.value)} />
+        </div>
+      </div>
+
+      <div>
+        <p className={`${label} mb-2`}>Üye Bilgileri (isteğe bağlı)</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input className="h-9" placeholder="Ad" value={form.firstName} onChange={(e) => set('firstName', e.target.value)} />
+          <Input className="h-9" placeholder="İkinci Ad" value={form.middleName} onChange={(e) => set('middleName', e.target.value)} />
+          <Input className="h-9" placeholder="Soyad" value={form.lastName} onChange={(e) => set('lastName', e.target.value)} />
+          <Input className="h-9 font-mono" placeholder="TC / Kimlik No" value={form.identityNumber} onChange={(e) => set('identityNumber', e.target.value)} />
+          <Input className="h-9 font-mono" placeholder="Üye No" value={form.memberId} onChange={(e) => set('memberId', e.target.value)} />
+          <Input className="h-9 font-mono" placeholder="Telefon (+90...)" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <div className="flex gap-2">
+        <Button type="submit" disabled={createDeposit.isPending || !isValid} className="h-9">
+          {createDeposit.isPending ? 'Oluşturuluyor...' : 'Yatırım Talebi Oluştur'}
+        </Button>
+        <Button type="button" variant="outline" className="h-9" onClick={() => router.push('/transactions')}>
+          İptal
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 export default function TransactionsNewPage() {
   const { data: meData }    = useMe()
   const userId              = meData?.user?.id ?? ''
@@ -226,14 +365,23 @@ export default function TransactionsNewPage() {
         )}
       </div>
 
-      {/* Manual creation form */}
+      {/* Manual creation forms */}
       {canCreate && (
         <div className="rounded-lg border bg-card p-5">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold">Manuel Çekim Talebi Oluştur</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Sistem üzerinden doğrudan çekim işlemi oluştur</p>
-          </div>
-          <ManualWithdrawalForm merchants={merchants} />
+          <Tabs defaultValue="deposit">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-semibold">Manuel İşlem Oluştur</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Sistem üzerinden doğrudan yatırım veya çekim talebi oluştur; talep havuza "Yeni" olarak düşer</p>
+              </div>
+              <TabsList>
+                <TabsTrigger value="deposit">Yatırım</TabsTrigger>
+                <TabsTrigger value="withdrawal">Çekim</TabsTrigger>
+              </TabsList>
+            </div>
+            <TabsContent value="deposit"><ManualDepositForm merchants={merchants} /></TabsContent>
+            <TabsContent value="withdrawal"><ManualWithdrawalForm merchants={merchants} /></TabsContent>
+          </Tabs>
         </div>
       )}
     </div>

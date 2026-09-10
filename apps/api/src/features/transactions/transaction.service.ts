@@ -362,15 +362,18 @@ export const transactionService = {
     maxAmount?:   number
     search?:      string
     searchType?:  'kullanici' | 'iban' | 'islem_id'
+    providerId?:  string
     page:         number
     limit:        number
   }) {
-    const { merchantId, status, type, paymentType, bankId, dateFrom, dateTo, minAmount, maxAmount, search, searchType, page, limit } = filters
+    const { merchantId, status, type, paymentType, bankId, dateFrom, dateTo, minAmount, maxAmount, search, searchType, providerId, page, limit } = filters
     const offset = (page - 1) * limit
 
     const conditions = [eq(transactions.tenantId, tenantId)]
     if (merchantId) conditions.push(eq(transactions.merchantId, merchantId))
-    if (status) conditions.push(eq(transactions.status, status as TransactionStatus))
+    // 'REVISED' sanal durum: sonradan onaya çevrilmiş (düzeltilmiş) işlemler
+    if (status === 'REVISED') conditions.push(eq(transactions.revised, true))
+    else if (status) conditions.push(eq(transactions.status, status as TransactionStatus))
     if (type) conditions.push(eq(transactions.type, type))
     if (dateFrom) conditions.push(gte(transactions.createdAt, new Date(dateFrom)))
     if (dateTo) {
@@ -383,10 +386,11 @@ export const transactionService = {
     if (search && searchType === 'kullanici') conditions.push(ilike(transactions.externalUserId, `%${search}%`))
     if (search && searchType === 'iban') conditions.push(sql`${transactions.withdrawalAddress} ILIKE ${'%' + search + '%'}`)
     if (search && searchType === 'islem_id') conditions.push(sql`${transactions.id}::text ILIKE ${search + '%'}`)
-    if (paymentType || bankId) {
+    if (paymentType || bankId || providerId) {
       const paConditions = [eq(paymentAccounts.tenantId, tenantId)]
       if (paymentType) paConditions.push(eq(paymentAccounts.type, paymentType))
       if (bankId)      paConditions.push(eq(paymentAccounts.bankId, bankId))
+      if (providerId)  paConditions.push(eq(paymentAccounts.providerId, providerId))
       const accountIds = await db
         .select({ id: paymentAccounts.id })
         .from(paymentAccounts)
@@ -403,7 +407,10 @@ export const transactionService = {
         offset,
         with: {
           merchant:       { columns: { merchantName: true } },
-          paymentAccount: { columns: { name: true }, with: { bank: { columns: { name: true } } } },
+          paymentAccount: {
+            columns: { name: true, accountNumber: true },
+            with: { bank: { columns: { name: true } }, provider: { columns: { name: true } } },
+          },
         },
       }),
       db.$count(transactions, where),
@@ -605,8 +612,9 @@ export const transactionService = {
         paymentAccount: {
           columns: { type: true, name: true, accountNumber: true },
           with: {
-            bank:    { columns: { name: true } },
-            cryptos: { with: { crypto: { columns: { name: true, symbol: true } } } },
+            bank:     { columns: { name: true } },
+            provider: { columns: { id: true, name: true } },
+            cryptos:  { with: { crypto: { columns: { name: true, symbol: true } } } },
           },
         },
       },
@@ -804,6 +812,200 @@ export const transactionService = {
     }).catch(() => {})
 
     return tx
+  },
+
+  // Manuel yatırım: panelden oluşturulur, hesap baştan atanır (claim'de routing yapılmaz), PENDING olarak havuza düşer
+  async createManualDeposit(params: {
+    tenantId:         string
+    merchantId:       string
+    paymentAccountId: string
+    externalUserId:   string
+    amount:           string
+    currency:         string
+    note?:            string | null
+    userInfo?: {
+      identityNumber?: string | null
+      memberId?:       string | null
+      firstName?:      string | null
+      middleName?:     string | null
+      lastName?:       string | null
+      phone?:          string | null
+    } | null
+  }) {
+    const { tenantId, merchantId, paymentAccountId, externalUserId, amount, note, userInfo } = params
+    const currency = params.currency.toUpperCase()
+
+    const [merchant, account, tryRate] = await Promise.all([
+      db.query.merchants.findFirst({
+        where: and(eq(merchants.id, merchantId), eq(merchants.tenantId, tenantId)),
+        columns: { id: true, merchantName: true },
+      }),
+      db.query.paymentAccounts.findFirst({
+        where: and(eq(paymentAccounts.id, paymentAccountId), eq(paymentAccounts.tenantId, tenantId)),
+        columns: { id: true, status: true },
+      }),
+      lookupTryRate(currency),
+    ])
+    if (!merchant) throw new AppError('NOT_FOUND', 'Merchant bulunamadı.', 404)
+    if (!account)  throw new AppError('NOT_FOUND', 'Ödeme hesabı bulunamadı.', 404)
+    if (account.status !== 'active') throw new AppError('ACCOUNT_INACTIVE', 'Ödeme hesabı aktif değil.', 409)
+
+    const tx = await db.transaction(async (dbTx) => {
+      const now = new Date()
+      const block = await dbTx.query.blockedPlayers.findFirst({
+        where: and(
+          eq(blockedPlayers.merchantId, merchantId),
+          eq(blockedPlayers.externalUserId, externalUserId),
+          or(eq(blockedPlayers.isPermanent, true), gt(blockedPlayers.blockedUntil, now)),
+        ),
+      })
+      if (block) {
+        throw new AppError('USER_BLOCKED', 'Bu oyuncu engellenmiştir.', 403, {
+          blockedUntil: block.blockedUntil?.toISOString() ?? null,
+        })
+      }
+
+      const [row] = await dbTx.insert(transactions).values({
+        tenantId,
+        merchantId,
+        paymentAccountId,
+        externalUserId,
+        amount,
+        currency,
+        status:             'PENDING',
+        type:               'deposit',
+        note:               note?.trim() ? note.trim() : null,
+        exchangeRate:       tryRate?.exchangeRate ?? null,
+        amountTry:          tryRate ? tryRate.amountTry(amount) : amount,
+        userIdentityNumber: userInfo?.identityNumber?.trim() || null,
+        userMemberId:       userInfo?.memberId?.trim()       || null,
+        userFirstName:      userInfo?.firstName?.trim()      || null,
+        userMiddleName:     userInfo?.middleName?.trim()     || '',
+        userLastName:       userInfo?.lastName?.trim()       || null,
+        userPhone:          userInfo?.phone?.trim()          || null,
+      }).returning()
+      if (!row) throw new AppError('INTERNAL_SERVER_ERROR', 'İşlem oluşturulamadı.', 500)
+
+      // Hesabın günlük kullanımını artır (routing engine ile aynı muhasebe)
+      await dbTx.execute(sql`
+        UPDATE payment_accounts
+        SET daily_used = daily_used + ${amount}::numeric, updated_at = NOW()
+        WHERE id = ${paymentAccountId}
+      `)
+      return row
+    })
+
+    const pendingPayload = {
+      txId:         tx.id,
+      amount:       tx.amount,
+      currency:     tx.currency,
+      merchantName: merchant.merchantName,
+      createdAt:    tx.createdAt.toISOString(),
+    }
+    sseManager.emitToTenant(tenantId, 'transaction.pending', { type: 'transaction.pending', ...pendingPayload })
+    notificationService.createPendingNotifications({ tenantId, transactionId: tx.id, payload: pendingPayload }).catch(() => {})
+
+    return tx
+  },
+
+  // Talebi başka tedarik firmasının hesabına transfer et.
+  // Eski hesap bağlantısı işlemden kaldırılır (günlük kullanım geri alınır), yeni hesap atanır.
+  async transferTransaction(params: {
+    tenantId:         string
+    userId:           string
+    userRole:         string
+    transactionId:    string
+    paymentAccountId: string
+    reason?:          string | null
+  }) {
+    const { tenantId, userId, userRole, transactionId, paymentAccountId, reason } = params
+    const isAdmin = userRole === 'finans_admin' || userRole === 'tenant_admin'
+    if (!isAdmin) throw new AppError('FORBIDDEN', 'Transfer yalnızca finans_admin veya tenant_admin tarafından yapılabilir.', 403)
+
+    const result = await db.transaction(async (dbTx) => {
+      const tx = await dbTx.query.transactions.findFirst({
+        where: and(eq(transactions.id, transactionId), eq(transactions.tenantId, tenantId)),
+        with: { paymentAccount: { columns: { id: true, providerId: true, name: true }, with: { provider: { columns: { name: true } } } } },
+      })
+      if (!tx) throw new AppError('NOT_FOUND', 'İşlem bulunamadı.', 404)
+      if (tx.type !== 'deposit') throw new AppError('INVALID_STATE_TRANSITION', 'Transfer yalnızca yatırım işlemleri için geçerlidir.', 409)
+      if (tx.status !== 'PENDING' && tx.status !== 'PROCESSING') {
+        throw new AppError('INVALID_STATE_TRANSITION', 'Yalnızca PENDING veya PROCESSING işlem transfer edilebilir.', 409)
+      }
+      if (tx.paymentAccountId === paymentAccountId) {
+        throw new AppError('SAME_ACCOUNT', 'İşlem zaten bu hesaba atanmış.', 409)
+      }
+
+      const target = await dbTx.query.paymentAccounts.findFirst({
+        where: and(eq(paymentAccounts.id, paymentAccountId), eq(paymentAccounts.tenantId, tenantId)),
+        columns: { id: true, status: true, name: true, accountNumber: true, providerId: true, type: true },
+        with: { bank: { columns: { name: true } }, provider: { columns: { name: true } } },
+      })
+      if (!target) throw new AppError('NOT_FOUND', 'Hedef ödeme hesabı bulunamadı.', 404)
+      if (target.status !== 'active') throw new AppError('ACCOUNT_INACTIVE', 'Hedef hesap aktif değil.', 409)
+      if (tx.paymentAccount?.providerId && target.providerId && tx.paymentAccount.providerId === target.providerId) {
+        throw new AppError('SAME_PROVIDER', 'Hedef hesap aynı tedarik firmasına ait. Farklı bir tedarik firması seçin.', 409)
+      }
+
+      // Günlük kullanım muhasebesi: eskiden düş, yeniye ekle
+      if (tx.paymentAccountId) {
+        await dbTx.execute(sql`
+          UPDATE payment_accounts
+          SET daily_used = GREATEST(daily_used - ${tx.amount}::numeric, 0), updated_at = NOW()
+          WHERE id = ${tx.paymentAccountId}
+        `)
+      }
+      await dbTx.execute(sql`
+        UPDATE payment_accounts
+        SET daily_used = daily_used + ${tx.amount}::numeric, updated_at = NOW()
+        WHERE id = ${target.id}
+      `)
+
+      const fromLabel = tx.paymentAccount
+        ? `${tx.paymentAccount.provider?.name ?? 'Tedarikçisiz'} / ${tx.paymentAccount.name}`
+        : 'Hesap yok'
+      const toLabel   = `${target.provider?.name ?? 'Tedarikçisiz'} / ${target.name}`
+      const transferNote = `[Transfer] ${fromLabel} → ${toLabel}${reason?.trim() ? ` — ${reason.trim()}` : ''}`
+
+      const [updated] = await dbTx
+        .update(transactions)
+        .set({
+          paymentAccountId: target.id,
+          note:             tx.note ? `${tx.note}\n${transferNote}` : transferNote,
+          updatedAt:        new Date(),
+        })
+        .where(and(eq(transactions.id, transactionId), eq(transactions.tenantId, tenantId)))
+        .returning()
+      if (!updated) throw new AppError('INTERNAL_SERVER_ERROR', 'Transfer uygulanamadı.', 500)
+
+      await dbTx.insert(transactionComments).values({
+        tenantId,
+        transactionId,
+        userId,
+        userRole,
+        content: transferNote,
+      })
+
+      return {
+        tx:             updated,
+        depositAddress: target.accountNumber,
+        accountName:    target.name,
+        bankName:       target.bank?.name ?? null,
+        fromAccountId:  tx.paymentAccountId,
+      }
+    })
+
+    // Panel: hesap değişti
+    sseManager.emitToTenant(tenantId, 'transaction.account_assigned', {
+      type:           'transaction.account_assigned',
+      txId:           result.tx.id,
+      status:         result.tx.status,
+      depositAddress: result.depositAddress,
+      accountName:    result.accountName,
+      bankName:       result.bankName,
+    })
+
+    return result
   },
 
 }

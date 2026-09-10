@@ -100,3 +100,30 @@ export function useApproveTransactionWithAmount() {
     },
   })
 }
+
+// REJECTED / TIMEOUT yatırımı APPROVED'a çevir (1 saat penceresi, admin)
+export function useReviseTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post<ApproveRejectResponse>(`/api/v1/transactions/${id}/revise`, {}),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['transaction', id] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
+
+// Talebi farklı tedarik firmasının hesabına transfer et
+export function useTransferTransaction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, paymentAccountId, reason }: { id: string; paymentAccountId: string; reason?: string }) =>
+      apiClient.post<ApproveRejectResponse>(`/api/v1/transactions/${id}/transfer`, { paymentAccountId, reason }),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['transaction', id] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['payment-accounts'] })
+    },
+  })
+}

@@ -8,7 +8,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { title: 'İşlemler',           href: '/transactions',      icon: 'ArrowLeftRight' },
-  { title: 'Çekim Talebi Al',   href: '/transactions/new',  icon: 'Bell' },
+  { title: 'Talep Al / Manuel İşlem', href: '/transactions/new', icon: 'Bell' },
   { title: 'Sohbet',             href: '/chat',              icon: 'MessageSquare' },
   { title: 'Tenant Yönetimi',    href: '/tenants',          icon: 'Building2' },
   { title: 'Site Yönetimi',      href: '/merchants',        icon: 'Store' },

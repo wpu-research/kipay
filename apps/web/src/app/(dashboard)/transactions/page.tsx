@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CalendarIcon, X, RefreshCw, Search } from 'lucide-react'
+import { CalendarIcon, X, RefreshCw, Search, FileSpreadsheet, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 import { type DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { useTransactions } from '@/features/transactions/use-transactions'
+import { useTransactions, useExportTransactions } from '@/features/transactions/use-transactions'
+import { usePaymentProviders } from '@/features/payment-providers/use-payment-providers'
 import { TransactionTable } from '@/features/transactions/TransactionTable'
 import { TransactionDetail } from '@/features/transactions/TransactionDetail'
 import { useMe } from '@/features/auth/use-me'
@@ -26,8 +28,18 @@ const STATUS_OPTIONS = [
   { value: 'APPROVED',   label: 'Onaylandı' },
   { value: 'COMPLETED',  label: 'Tamamlandı' },
   { value: 'REJECTED',   label: 'Reddedildi' },
+  { value: 'TIMEOUT',    label: 'Zaman Aşımı' },
   { value: 'FLAGGED',    label: 'Şüpheli' },
+  { value: 'REVISED',    label: 'Düzeltilmiş' },
 ]
+
+// Hızlı arama: açıkken tarih seçilmemişse son 30 gün gösterilir
+const QUICK_SEARCH_DAYS = 30
+function daysAgoIso(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().split('T')[0]
+}
 
 const LIMIT_OPTIONS = [
   { value: '25',  label: '25' },
@@ -89,13 +101,15 @@ function TransactionsPageInner() {
   const [status, setStatus]         = useState('PENDING')
   const [bankId, setBankId]         = useState('')
   const [merchantId, setMerchantId] = useState('')
+  const [providerId, setProviderId] = useState('')
+  const [quickSearch, setQuickSearch] = useState(true)
   const [dateRange, setDateRange]   = useState<DateRange | undefined>(undefined)
   const [minAmount, setMinAmount]         = useState('')
   const [maxAmount, setMaxAmount]         = useState('')
   const [minAmountInput, setMinAmountInput] = useState('')
   const [maxAmountInput, setMaxAmountInput] = useState('')
   const [search, setSearch]               = useState('')
-  const [searchType, setSearchType] = useState<'kullanici' | 'iban' | 'islem_id' | ''>('')
+  const [searchType, setSearchType] = useState<'kullanici' | 'iban' | 'islem_id'>('kullanici')
   const [searchInput, setSearchInput] = useState('')
   const searchParams = useSearchParams()
   const [selectedTxId, setSelectedTxId] = useState<string | null>(searchParams.get('tx'))
@@ -107,6 +121,9 @@ function TransactionsPageInner() {
   const banks = banksData?.data ?? []
   const { data: merchantsData } = useMerchants(1, 100)
   const merchants = merchantsData?.data ?? []
+  const { data: providersData } = usePaymentProviders(1, 100)
+  const providers = providersData?.data ?? []
+  const exportXlsx = useExportTransactions()
   const userId   = me?.user.id       ?? ''
   const tenantId = me?.user.tenantId ?? ''
 
@@ -117,15 +134,26 @@ function TransactionsPageInner() {
   const d = new Date()
   const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
+  const quickFrom = quickSearch && !dateRange?.from ? daysAgoIso(QUICK_SEARCH_DAYS) : undefined
   const commonFilters = {
     bankId:      bankId || undefined,
     merchantId:  merchantId || undefined,
-    dateFrom:    dateRange?.from ? dateRange.from.toISOString().split('T')[0] : undefined,
+    providerId:  providerId || undefined,
+    dateFrom:    dateRange?.from ? dateRange.from.toISOString().split('T')[0] : quickFrom,
     dateTo:      dateRange?.to   ? dateRange.to.toISOString().split('T')[0]   : undefined,
     minAmount:   minAmount || undefined,
     maxAmount:   maxAmount || undefined,
     search:      search || undefined,
-    searchType:  (search && searchType) ? searchType : undefined,
+    searchType:  search ? searchType : undefined,
+  }
+
+  async function handleExport() {
+    try {
+      const name = await exportXlsx.mutateAsync({ ...commonFilters, status: status || undefined, type: activeTab })
+      toast.success(`İndirildi: ${name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Dışa aktarma başarısız.')
+    }
   }
 
   const { data, isLoading, error, refetch } = useTransactions(tenantId, userId, {
@@ -154,6 +182,8 @@ function TransactionsPageInner() {
     setStatus('PENDING')
     setBankId('')
     setMerchantId('')
+    setProviderId('')
+    setQuickSearch(true)
     setDateRange(undefined)
     setMinAmount('')
     setMaxAmount('')
@@ -161,7 +191,7 @@ function TransactionsPageInner() {
     setMaxAmountInput('')
     setSearch('')
     setSearchInput('')
-    setSearchType('')
+    setSearchType('kullanici')
     setPage(1)
   }
 
@@ -253,19 +283,30 @@ function TransactionsPageInner() {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={providerId || '_all'} onValueChange={(v) => { setProviderId(v === '_all' ? '' : v); setPage(1) }}>
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue placeholder="Tedarik Firması" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Tüm Tedarikçiler</SelectItem>
+              {providers.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Row 2 */}
         <div className="flex flex-wrap gap-2 items-center">
           <Select
-            value={searchType || '_none'}
-            onValueChange={(v) => setSearchType(v === '_none' ? '' : v as typeof searchType)}
+            value={searchType}
+            onValueChange={(v) => setSearchType(v as typeof searchType)}
           >
             <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue placeholder="Arama tipi" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">Arama Tipi</SelectItem>
               <SelectItem value="kullanici">Kullanıcı Adı</SelectItem>
               <SelectItem value="iban">IBAN</SelectItem>
               <SelectItem value="islem_id">İşlem ID</SelectItem>
@@ -285,9 +326,25 @@ function TransactionsPageInner() {
             </Button>
           </div>
 
+          <Button
+            size="sm"
+            variant={quickSearch ? 'default' : 'outline'}
+            className="h-8 gap-1 text-xs"
+            title={quickSearch ? `Hızlı arama açık: tarih seçilmediyse son ${QUICK_SEARCH_DAYS} gün gösterilir` : 'Hızlı arama kapalı: tüm işlemler gösterilir'}
+            onClick={() => { setQuickSearch((v) => !v); setPage(1) }}
+          >
+            <Zap className="size-3" />
+            {quickSearch ? `Hızlı: son ${QUICK_SEARCH_DAYS} gün` : 'Hızlı arama kapalı'}
+          </Button>
+
           <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => refetch()}>
             <RefreshCw className="size-3" />
             Yenile
+          </Button>
+
+          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={handleExport} disabled={exportXlsx.isPending}>
+            <FileSpreadsheet className="size-3" />
+            {exportXlsx.isPending ? 'Hazırlanıyor...' : 'Excel'}
           </Button>
 
           <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={resetFilters}>

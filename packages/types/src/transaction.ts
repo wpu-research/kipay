@@ -138,7 +138,17 @@ export const TransactionItemSchema = z.object({
   exchangeRate:       z.string().nullable(),
   playerConfirmed:    z.boolean().default(false),
   playerConfirmedAt:  z.string().nullable(),
+  // v1.1 revision
+  revised:            z.boolean().default(false),
+  previousStatus:     TransactionStatusEnum.nullable(),
+  // Hesabın bağlı olduğu tedarik firması (varsa)
+  providerName:       z.string().nullable(),
+  // Altyapıdan gelen üye bilgisi (ad soyad birleşik)
+  userFullName:       z.string().nullable(),
 })
+
+// Liste filtresinde kullanılan durum: gerçek durumlar + 'REVISED' sanal durumu (düzeltilmiş işlemler)
+export const TransactionStatusFilterEnum = z.enum([...TransactionStatusEnum.options, 'REVISED'])
 
 export const TransactionListSchema = z.object({
   data: z.array(TransactionItemSchema),
@@ -189,18 +199,55 @@ export const TransactionDetailSchema = z.object({
     withdrawalAccountName: z.string().nullable(),
     withdrawalAddress:     z.string().nullable(),
     withdrawalBankName:    z.string().nullable(),
+    // Altyapıdan gelen üye bilgileri (v1.1 userInfo)
+    userInfo: z.object({
+      identityNumber: z.string().nullable(),
+      memberId:       z.string().nullable(),
+      firstName:      z.string().nullable(),
+      middleName:     z.string().nullable(),
+      lastName:       z.string().nullable(),
+      phone:          z.string().nullable(),
+    }),
     comments: z.array(TransactionCommentSchema),
     paymentAccount: z.object({
+      id:            z.string().uuid().nullable(),
       type:          z.enum(['bank', 'crypto']),
       name:          z.string(),
       accountNumber: z.string(),
       bank:          z.object({ name: z.string() }).nullable(),
+      provider:      z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
       cryptos:       z.array(z.object({
         crypto: z.object({ name: z.string(), symbol: z.string() }),
       })),
     }).nullable(),
   }),
 })
+
+// POST /api/v1/transactions/manual-deposit body
+export const ManualDepositSchema = z.object({
+  merchantId:       z.string().uuid(),
+  paymentAccountId: z.string().uuid(),
+  externalUserId:   z.string().min(1),
+  amount:           z.string().regex(/^\d+(\.\d{1,2})?$/, 'Geçerli tutar formatı: "500" veya "500.00"'),
+  currency:         z.string().min(1).max(10).default('TRY'),
+  note:             z.string().max(500).optional(),
+  userInfo: z.object({
+    identityNumber: z.string().max(32).optional(),
+    memberId:       z.string().max(64).optional(),
+    firstName:      z.string().max(64).optional(),
+    middleName:     z.string().max(64).optional(),
+    lastName:       z.string().max(64).optional(),
+    phone:          z.string().max(32).optional(),
+  }).optional(),
+})
+export type ManualDepositInput = z.infer<typeof ManualDepositSchema>
+
+// POST /api/v1/transactions/:id/transfer body
+export const TransferTransactionSchema = z.object({
+  paymentAccountId: z.string().uuid(),
+  reason:           z.string().max(500).optional(),
+})
+export type TransferTransactionInput = z.infer<typeof TransferTransactionSchema>
 export type TransactionDetail = z.infer<typeof TransactionDetailSchema>
 
 // POST /api/v1/transactions/:id/retry-callback response

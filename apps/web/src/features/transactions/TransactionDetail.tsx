@@ -1,6 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check, MessageSquare } from 'lucide-react'
+import { Copy, Check, MessageSquare, ArrowLeftRight, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { usePaymentAccounts } from '@/features/payment-accounts/use-payment-accounts'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,6 +21,8 @@ import {
   useCallbackLogs,
   useRetryCallback,
   useApproveTransactionWithAmount,
+  useReviseTransaction,
+  useTransferTransaction,
 } from './use-transaction-detail'
 
 function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' | 'destructive' {
@@ -40,6 +45,25 @@ interface Props {
 
 const CAN_CLAIM_ROLES = ['finans_operator', 'finans_admin', 'tenant_admin']
 
+function fmtDateTime(iso: string | null | undefined) {
+  return iso ? new Date(iso).toLocaleString('tr-TR') : '—'
+}
+
+function maskIdentity(v: string | null, full: boolean) {
+  if (!v) return '—'
+  if (full || v.length < 6) return v
+  return `${v.slice(0, 3)}${'*'.repeat(v.length - 5)}${v.slice(-2)}`
+}
+
+function Row({ label, value, mono, wide }: { label: string; value: React.ReactNode; mono?: boolean; wide?: boolean }) {
+  return (
+    <>
+      <dt className={`text-muted-foreground ${wide ? 'col-span-2' : ''}`}>{label}</dt>
+      <dd className={`${mono ? 'font-mono text-xs break-all' : ''} ${wide ? 'col-span-2' : ''}`}>{value ?? '—'}</dd>
+    </>
+  )
+}
+
 export function TransactionDetail({ transactionId, currentUserId, userRole }: Props) {
   const [copied, setCopied] = useState(false)
   const qc = useQueryClient()
@@ -59,9 +83,19 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
   const callbackLogs       = useCallbackLogs(transactionId)
   const retryCallback      = useRetryCallback(transactionId)
   const approveWithAmount  = useApproveTransactionWithAmount()
+  const revise             = useReviseTransaction()
+  const transfer           = useTransferTransaction()
   const [adjustedAmount, setAdjustedAmount] = useState('')
   const [showAmountForm, setShowAmountForm] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [transferAccountId, setTransferAccountId] = useState('')
+  const [transferReason, setTransferReason] = useState('')
+  const [confirmRevise, setConfirmRevise] = useState(false)
   const router = useRouter()
+  const isAdminRole = userRole === 'finans_admin' || userRole === 'tenant_admin'
+  // Transfer için hedef hesaplar (yalnızca gerektiğinde çekilir)
+  const { data: accountsData } = usePaymentAccounts({ status: 'active', type: 'bank' }, 1, 100)
+  const transferAccounts = (accountsData?.data ?? [])
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Yükleniyor...</p>
   if (error)     return <p className="text-sm text-destructive">İşlem yüklenemedi.</p>
@@ -76,6 +110,38 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
   const canFlag          = tx.status === 'PROCESSING' && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole)
   const canResolve       = tx.status === 'FLAGGED' && ['tenant_admin', 'super_admin'].includes(userRole)
   const canComment       = ['finans_operator', 'finans_admin', 'tenant_admin', 'merchant', 'super_admin'].includes(userRole)
+  const isDeposit        = tx.type === 'deposit'
+  // Redli / zaman aşımı yatırımı onaya çevirme — admin, 1 saat penceresi (API doğrular)
+  const canRevise        = isDeposit && isAdminRole && (tx.status === 'REJECTED' || tx.status === 'TIMEOUT')
+  // Farklı tedarik firmasına transfer — admin, PENDING/PROCESSING yatırım
+  const canTransfer      = isDeposit && isAdminRole && (tx.status === 'PENDING' || tx.status === 'PROCESSING')
+  const currentProviderId = tx.paymentAccount?.provider?.id ?? null
+  const transferTargets  = transferAccounts.filter((a) => a.id !== tx.paymentAccount?.id && (!currentProviderId || a.providerId !== currentProviderId))
+  const fullName         = [tx.userInfo?.firstName, tx.userInfo?.middleName, tx.userInfo?.lastName].filter(Boolean).join(' ')
+
+  async function handleRevise() {
+    try {
+      await revise.mutateAsync(transactionId)
+      toast.success('İşlem onaya çevrildi (düzeltilmiş)')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Revizyon başarısız')
+    } finally {
+      setConfirmRevise(false)
+    }
+  }
+
+  async function handleTransfer() {
+    if (!transferAccountId) return
+    try {
+      await transfer.mutateAsync({ id: transactionId, paymentAccountId: transferAccountId, reason: transferReason || undefined })
+      toast.success('Talep yeni tedarik firmasına aktarıldı')
+      setShowTransfer(false)
+      setTransferAccountId('')
+      setTransferReason('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Transfer başarısız')
+    }
+  }
 
   async function handleApprove() {
     await approve.mutateAsync(transactionId)
@@ -280,74 +346,156 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
         </div>
       )}
 
+      {/* Revizyon: redli / zaman aşımı yatırımı onaya çevir */}
+      {canRevise && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Bu yatırım <strong>{tx.status === 'REJECTED' ? 'reddedilmiş' : 'zaman aşımına uğramış'}</strong>. Sonuçlanmadan itibaren 1 saat içinde onaya çevrilebilir; site yeniden callback alır.
+          </p>
+          {!confirmRevise ? (
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => setConfirmRevise(true)} disabled={revise.isPending}>
+              <RotateCcw className="size-3" /> Onaya Çevir
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleRevise} disabled={revise.isPending}>
+                {revise.isPending ? 'Çevriliyor...' : 'Evet, onaya çevir'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmRevise(false)}>İptal</Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transfer: farklı tedarik firmasına aktar */}
+      {canTransfer && (
+        <div className="space-y-2">
+          {!showTransfer ? (
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowTransfer(true)}>
+              <ArrowLeftRight className="size-3" /> Tedarik Firmasına Transfer
+            </Button>
+          ) : (
+            <div className="rounded-md border p-3 bg-muted/30 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Mevcut: <strong>{tx.paymentAccount ? `${tx.paymentAccount.provider?.name ?? 'Tedarikçisiz'} / ${tx.paymentAccount.name}` : 'Hesap atanmamış'}</strong>.
+                Yeni hesap seçildiğinde eski hesap bağlantısı kaldırılır{tx.status === 'PROCESSING' ? ' ve site yeni hesap bilgisini alır' : ''}.
+              </p>
+              <Select value={transferAccountId || '_none'} onValueChange={(v) => setTransferAccountId(v === '_none' ? '' : v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Hedef hesap seçin" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Hedef hesap seçin</SelectItem>
+                  {transferTargets.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {(a.provider?.name ?? 'Tedarikçisiz')} / {a.name} — {a.bank?.name ?? a.accountNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {transferTargets.length === 0 && (
+                <p className="text-xs text-destructive">Farklı tedarik firmasına ait aktif hesap bulunamadı.</p>
+              )}
+              <input
+                className="w-full h-8 rounded border bg-background px-2 text-xs"
+                placeholder="Neden (isteğe bağlı)"
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleTransfer} disabled={transfer.isPending || !transferAccountId}>
+                  {transfer.isPending ? 'Aktarılıyor...' : 'Transfer Et'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setShowTransfer(false); setTransferAccountId(''); setTransferReason('') }}>İptal</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* İşlem Detayı */}
       <Card>
         <CardContent className="pt-6">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dd className="col-span-2 text-xs text-muted-foreground">{new Date(tx.createdAt).toLocaleString('tr-TR')}</dd>
-            <dt className="text-muted-foreground">Tutar</dt>
-            <dd>{tx.amount} {tx.currency}</dd>
-            <dt className="text-muted-foreground">Site</dt>
-            <dd>{tx.merchantName ?? '—'}</dd>
-            <dt className="text-muted-foreground">Dış Kullanıcı</dt>
-            <dd>{tx.externalUserId}</dd>
-            {tx.resolvedAt && (
-              <>
-                <dt className="text-muted-foreground">Çözüm Tarihi</dt>
-                <dd>{new Date(tx.resolvedAt).toLocaleString('tr-TR')}</dd>
-              </>
+            <Row label="İşlem ID" value={tx.id} mono wide />
+            <Row label="Tip" value={isDeposit ? 'Yatırım' : 'Çekim'} />
+            <Row label="Tutar" value={`${tx.amount} ${tx.currency}`} />
+            <Row label="Site" value={tx.merchantName ?? '—'} />
+            <Row label="Kullanıcı Adı" value={tx.externalUserId} />
+            <Row label="Ad Soyad" value={fullName || '—'} />
+            <Row label="Talep Geliş" value={fmtDateTime(tx.createdAt)} />
+            <Row label="Sonuçlanma" value={fmtDateTime(tx.resolvedAt)} />
+            {tx.revised && (
+              <Row label="Düzeltme" value={`Evet (önceki: ${tx.previousStatus ?? '—'})`} />
             )}
-            {tx.note && (
-              <>
-                <dt className="text-muted-foreground">Not</dt>
-                <dd>{tx.note}</dd>
-              </>
-            )}
-            {tx.paymentAccount && (
-              <>
-                <dt className="text-muted-foreground">Hesap Adı</dt>
-                <dd>{tx.paymentAccount.name}</dd>
-              </>
-            )}
-            {!tx.paymentAccount && (tx.withdrawalBankName || tx.withdrawalAccountName) && (
-              <>
-                {tx.withdrawalBankName && (
-                  <>
-                    <dt className="text-muted-foreground">Banka</dt>
-                    <dd>{tx.withdrawalBankName}</dd>
-                  </>
-                )}
-                <dt className="text-muted-foreground">Hesap Adı</dt>
-                <dd>{tx.withdrawalAccountName ?? '—'}</dd>
-                {tx.withdrawalAddress && (
-                  <>
-                    <dt className="text-muted-foreground col-span-2">Hesap No (IBAN)</dt>
-                    <dd className="font-mono text-xs break-all col-span-2">{tx.withdrawalAddress}</dd>
-                  </>
-                )}
-              </>
-            )}
-            {tx.paymentAccount && tx.paymentAccount.type === 'bank' && (
-              <>
-                <dt className="text-muted-foreground">Banka</dt>
-                <dd>{tx.paymentAccount.bank?.name ?? tx.paymentAccount.name}</dd>
-                <dt className="text-muted-foreground col-span-2">Hesap No (IBAN)</dt>
-                <dd className="font-mono text-xs break-all col-span-2">{tx.paymentAccount.accountNumber}</dd>
-              </>
-            )}
-            {tx.paymentAccount && tx.paymentAccount.type === 'crypto' && (
-              <>
-                <dt className="text-muted-foreground">Kripto</dt>
-                <dd>
-                  {tx.paymentAccount.cryptos.length > 0
-                    ? tx.paymentAccount.cryptos.map((c) => `${c.crypto.name} (${c.crypto.symbol})`).join(', ')
-                    : tx.paymentAccount.name}
-                </dd>
-                <dt className="text-muted-foreground col-span-2">Cüzdan Adresi</dt>
-                <dd className="font-mono text-xs break-all col-span-2">{tx.paymentAccount.accountNumber}</dd>
-              </>
-            )}
+            {tx.note && <Row label="Not" value={<span className="whitespace-pre-wrap">{tx.note}</span>} wide />}
           </dl>
+
+          {/* Hesap bilgileri: yatırımda alıcı = bizim hesap, çekimde alıcı = üye, gönderen = bizim hesap */}
+          <div className="mt-4 border-t pt-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+              {isDeposit ? 'Alıcı Hesap (bizim hesap)' : 'Alıcı (üye hesabı)'}
+            </p>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {isDeposit ? (
+                tx.paymentAccount ? (
+                  <>
+                    <Row label="Tedarik Firması" value={tx.paymentAccount.provider?.name ?? '—'} />
+                    <Row label="Hesap Adı" value={tx.paymentAccount.name} />
+                    {tx.paymentAccount.type === 'bank' ? (
+                      <>
+                        <Row label="Banka" value={tx.paymentAccount.bank?.name ?? '—'} />
+                        <Row label="IBAN" value={tx.paymentAccount.accountNumber} mono wide />
+                      </>
+                    ) : (
+                      <>
+                        <Row label="Kripto" value={tx.paymentAccount.cryptos.length > 0 ? tx.paymentAccount.cryptos.map((c) => `${c.crypto.name} (${c.crypto.symbol})`).join(', ') : '—'} />
+                        <Row label="Cüzdan Adresi" value={tx.paymentAccount.accountNumber} mono wide />
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <dd className="col-span-2 text-xs text-muted-foreground">Henüz hesap atanmadı (claim anında atanır).</dd>
+                )
+              ) : (
+                <>
+                  <Row label="Hesap Sahibi" value={tx.withdrawalAccountName ?? '—'} />
+                  <Row label="Banka" value={tx.withdrawalBankName ?? '—'} />
+                  <Row label={tx.paymentMethod?.toUpperCase() === 'IBAN' ? 'IBAN' : 'Hesap No / Adres'} value={tx.withdrawalAddress ?? '—'} mono wide />
+                  <Row label="Yöntem" value={tx.paymentMethod ?? '—'} />
+                </>
+              )}
+            </dl>
+
+            {!isDeposit && (
+              <>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-4 mb-2">Gönderen Hesap (bizim hesap)</p>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  {tx.paymentAccount ? (
+                    <>
+                      <Row label="Tedarik Firması" value={tx.paymentAccount.provider?.name ?? '—'} />
+                      <Row label="Hesap Adı" value={tx.paymentAccount.name} />
+                      <Row label="Banka" value={tx.paymentAccount.bank?.name ?? '—'} />
+                      <Row label="IBAN" value={tx.paymentAccount.accountNumber} mono wide />
+                    </>
+                  ) : (
+                    <dd className="col-span-2 text-xs text-muted-foreground">Gönderen hesap kaydı yok.</dd>
+                  )}
+                </dl>
+              </>
+            )}
+          </div>
+
+          {/* Altyapıdan gelen üye bilgileri */}
+          <div className="mt-4 border-t pt-3">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Üye Bilgileri (altyapı)</p>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <Row label="Üye No" value={tx.userInfo?.memberId ?? '—'} />
+              <Row label="TC / Kimlik No" value={maskIdentity(tx.userInfo?.identityNumber ?? null, isAdminRole)} mono />
+              <Row label="Ad" value={tx.userInfo?.firstName ?? '—'} />
+              <Row label="İkinci Ad" value={tx.userInfo?.middleName || '—'} />
+              <Row label="Soyad" value={tx.userInfo?.lastName ?? '—'} />
+              <Row label="Telefon" value={tx.userInfo?.phone ?? '—'} mono />
+            </dl>
+          </div>
         </CardContent>
       </Card>
 
