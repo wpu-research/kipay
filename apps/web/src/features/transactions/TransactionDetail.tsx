@@ -94,7 +94,7 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
   const router = useRouter()
   const isAdminRole = userRole === 'finans_admin' || userRole === 'tenant_admin'
   // Transfer için hedef hesaplar (yalnızca gerektiğinde çekilir)
-  const { data: accountsData } = usePaymentAccounts({ status: 'active', type: 'bank' }, 1, 100)
+  const { data: accountsData } = usePaymentAccounts({ status: 'active', type: 'bank' }, 1, 100, isAdminRole)
   const transferAccounts = (accountsData?.data ?? [])
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Yükleniyor...</p>

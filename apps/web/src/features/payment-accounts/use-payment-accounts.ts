@@ -14,6 +14,7 @@ export function usePaymentAccounts(
   filters: { status?: string; type?: string; bankId?: string; providerId?: string } = {},
   page = 1,
   limit = 20,
+  enabled = true,
 ) {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) })
   if (filters.status) params.set('status', filters.status)
@@ -24,6 +25,7 @@ export function usePaymentAccounts(
   return useQuery({
     queryKey: ['payment-accounts', filters, page, limit],
     queryFn:  () => apiClient.get<PaymentAccountListResponse>(`/api/v1/payment-accounts?${params}`),
+    enabled,
   })
 }
 
