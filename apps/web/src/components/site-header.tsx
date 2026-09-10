@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { ThemeSwitcher } from "@/components/theme-switcher"
 import { NotificationBell } from "@/features/notifications/NotificationBell"
+import { ChatBell } from "@/features/chat/ChatBell"
 import { useMe } from "@/features/auth/use-me"
 
 const NOTIFICATION_ROLES = ['tenant_admin', 'finans_admin', 'finans_operator']
@@ -78,6 +79,7 @@ export function SiteHeader() {
         </Breadcrumb>
 
         <div className="ml-auto flex items-center gap-2">
+          {['tenant_admin', 'finans_admin', 'finans_operator'].includes(me?.user?.role ?? '') && <ChatBell />}
           {showNotifications && <NotificationBell />}
           <ThemeSwitcher />
         </div>

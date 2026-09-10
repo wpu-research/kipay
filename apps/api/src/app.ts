@@ -30,6 +30,7 @@ import { exchangeRateRoutes } from './features/exchange-rates/exchange-rate.rout
 import { reportRoutes }       from './features/reports/report.routes.js';
 import { settingsRoutes }     from './features/settings/settings.routes.js';
 import { profileRoutes }     from './features/profile/profile.routes.js';
+import { chatRoutes } from './features/chat/chat.routes.js';
 import { env } from './config/env.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -157,6 +158,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(reportRoutes,        { prefix: '/api/v1/reports' });
   await app.register(settingsRoutes,      { prefix: '/api/v1/settings' });
   await app.register(profileRoutes,      { prefix: '/api/v1/profile' });
+  await app.register(chatRoutes,         { prefix: '/api/v1/chat' });
 
   return app;
 }

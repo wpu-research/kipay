@@ -21,11 +21,17 @@ export function SseProvider({ children }: { children: React.ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     }
 
+    const onChat = () => queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] })
+    const onMention = () => { playNotificationSound(); queryClient.invalidateQueries({ queryKey: ['notifications'] }) }
+    sseClient.on('chat.message', onChat)
+    sseClient.on('chat.mention', onMention)
     sseClient.on('transaction.pending', onNotification)
     sseClient.on('transaction.pending', onTransaction)
     sseClient.on('transaction.claimed', onTransaction)
 
     return () => {
+      sseClient.off('chat.message', onChat)
+      sseClient.off('chat.mention', onMention)
       sseClient.off('transaction.pending', onNotification)
       sseClient.off('transaction.pending', onTransaction)
       sseClient.off('transaction.claimed', onTransaction)

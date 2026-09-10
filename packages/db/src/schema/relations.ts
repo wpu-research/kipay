@@ -8,6 +8,7 @@ import { merchantIpWhitelist } from './merchant-ip-whitelist'
 import { paymentProviders } from './payment-providers'
 import { paymentProviderCategories } from './payment-provider-categories'
 import { paymentAccounts } from './payment-accounts'
+import { chatConversations, chatMembers, chatMessages } from './chat'
 import { banks } from './banks'
 import { cryptos } from './cryptos'
 import { paymentAccountCryptos } from './payment-account-cryptos'
@@ -130,4 +131,23 @@ export const warningsRelations = relations(warnings, ({ one }) => ({
   tenant:      one(tenants,      { fields: [warnings.tenantId],      references: [tenants.id] }),
   rule:        one(warningRules, { fields: [warnings.ruleId],        references: [warningRules.id] }),
   transaction: one(transactions, { fields: [warnings.transactionId], references: [transactions.id] }),
+}))
+
+export const chatConversationsRelations = relations(chatConversations, ({ one, many }) => ({
+  tenant:      one(tenants,      { fields: [chatConversations.tenantId],      references: [tenants.id] }),
+  transaction: one(transactions, { fields: [chatConversations.transactionId], references: [transactions.id] }),
+  creator:     one(users,        { fields: [chatConversations.createdBy],     references: [users.id] }),
+  members:     many(chatMembers),
+  messages:    many(chatMessages),
+}))
+
+export const chatMembersRelations = relations(chatMembers, ({ one }) => ({
+  conversation: one(chatConversations, { fields: [chatMembers.conversationId], references: [chatConversations.id] }),
+  user:         one(users,             { fields: [chatMembers.userId],         references: [users.id] }),
+}))
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(chatConversations, { fields: [chatMessages.conversationId], references: [chatConversations.id] }),
+  sender:       one(users,             { fields: [chatMessages.senderId],       references: [users.id] }),
+  replyTo:      one(chatMessages,      { fields: [chatMessages.replyToId],      references: [chatMessages.id] }),
 }))

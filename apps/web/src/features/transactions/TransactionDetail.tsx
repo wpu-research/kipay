@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, MessageSquare } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ClaimButton } from './ClaimButton'
@@ -60,6 +61,7 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
   const approveWithAmount  = useApproveTransactionWithAmount()
   const [adjustedAmount, setAdjustedAmount] = useState('')
   const [showAmountForm, setShowAmountForm] = useState(false)
+  const router = useRouter()
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Yükleniyor...</p>
   if (error)     return <p className="text-sm text-destructive">İşlem yüklenemedi.</p>
@@ -141,6 +143,11 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
           <span>{tx.id.slice(0, 8)}…</span>
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         </Button>
+        {['tenant_admin', 'finans_admin', 'finans_operator'].includes(userRole) && (
+          <Button variant="outline" size="sm" className="h-7 text-xs gap-1" title="Bu işlem için ekip sohbeti" onClick={() => router.push(`/chat?tx=${tx.id}`)}>
+            <MessageSquare className="size-3" /> Sohbet
+          </Button>
+        )}
         {CAN_CLAIM_ROLES.includes(userRole) && (
           <ClaimButton
             transactionId={tx.id}

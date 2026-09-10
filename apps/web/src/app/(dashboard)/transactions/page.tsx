@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CalendarIcon, X, RefreshCw, Search } from 'lucide-react'
 import { type DateRange } from 'react-day-picker'
 import { Button } from '@/components/ui/button'
@@ -83,7 +83,7 @@ function StatCard({ label, value, sub, subColor }: {
   )
 }
 
-export default function TransactionsPage() {
+function TransactionsPageInner() {
   const [page, setPage]             = useState(1)
   const [limit, setLimit]           = useState(25)
   const [status, setStatus]         = useState('PENDING')
@@ -97,7 +97,8 @@ export default function TransactionsPage() {
   const [search, setSearch]               = useState('')
   const [searchType, setSearchType] = useState<'kullanici' | 'iban' | 'islem_id' | ''>('')
   const [searchInput, setSearchInput] = useState('')
-  const [selectedTxId, setSelectedTxId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(searchParams.get('tx'))
   const [activeTab, setActiveTab]   = useState<'deposit' | 'withdrawal'>('deposit')
 
   const router = useRouter()
@@ -400,5 +401,13 @@ export default function TransactionsPage() {
         </SheetContent>
       </Sheet>
     </div>
+  )
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Yükleniyor...</p>}>
+      <TransactionsPageInner />
+    </Suspense>
   )
 }

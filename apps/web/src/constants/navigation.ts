@@ -9,6 +9,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { title: 'İşlemler',           href: '/transactions',      icon: 'ArrowLeftRight' },
   { title: 'Çekim Talebi Al',   href: '/transactions/new',  icon: 'Bell' },
+  { title: 'Sohbet',             href: '/chat',              icon: 'MessageSquare' },
   { title: 'Tenant Yönetimi',    href: '/tenants',          icon: 'Building2' },
   { title: 'Site Yönetimi',      href: '/merchants',        icon: 'Store' },
   { title: 'Kullanıcı Yönetimi', href: '/users',            icon: 'Users' },
@@ -30,11 +31,11 @@ export const ROLE_NAV_PERMISSIONS: Record<UserRole, string[]> = {
     '/banks', '/cryptos', '/report_general', '/audit-logs', '/user-activity', '/settings', '/system',
   ],
   tenant_admin: [
-    '/transactions', '/transactions/new', '/merchants', '/users',
+    '/transactions', '/transactions/new', '/chat', '/merchants', '/users',
     '/payment-accounts', '/payment-accounts/min-max', '/settings', '/user-activity',
   ],
-  finans_admin:    ['/transactions', '/transactions/new', '/payment-accounts', '/payment-accounts/min-max', '/user-activity'],
-  finans_operator: ['/transactions', '/transactions/new', '/user-activity'],
+  finans_admin:    ['/transactions', '/transactions/new', '/chat', '/payment-accounts', '/payment-accounts/min-max', '/user-activity'],
+  finans_operator: ['/transactions', '/transactions/new', '/chat', '/user-activity'],
   merchant:        ['/transactions'],
 }
 

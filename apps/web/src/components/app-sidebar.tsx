@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Settings,
   Activity,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react"
 
@@ -46,6 +47,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ClipboardList,
   Settings,
   Activity,
+  MessageSquare,
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
