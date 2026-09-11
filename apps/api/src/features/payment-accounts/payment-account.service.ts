@@ -99,13 +99,15 @@ export const paymentAccountService = {
     return enriched
   },
 
-  async listAccounts(tenantId: string, filters: { status?: string; type?: string; bankId?: string; providerId?: string }, page: number, limit: number) {
+  async listAccounts(tenantId: string, filters: { status?: string; type?: string; bankId?: string; providerId?: string; name?: string; accountNumber?: string }, page: number, limit: number) {
     return db.transaction(async (tx) => {
       const conditions = [eq(paymentAccounts.tenantId, tenantId)]
       if (filters.status) conditions.push(eq(paymentAccounts.status, filters.status as 'active' | 'inactive'))
       if (filters.type)   conditions.push(eq(paymentAccounts.type, filters.type as 'bank' | 'crypto'))
       if (filters.bankId) conditions.push(eq(paymentAccounts.bankId, filters.bankId))
       if (filters.providerId) conditions.push(eq(paymentAccounts.providerId, filters.providerId))
+      if (filters.name) conditions.push(sql`${paymentAccounts.name} ilike ${`%${filters.name}%`}`)
+      if (filters.accountNumber) conditions.push(sql`${paymentAccounts.accountNumber} ilike ${`%${filters.accountNumber}%`}`)
 
       const where = and(...conditions)
 

@@ -618,6 +618,8 @@ export default function PaymentAccountsPage() {
   const [filterType, setFilterType]   = useState('')
   const [filterBankId, setFilterBankId] = useState('')
   const [filterProviderId, setFilterProviderId] = useState('')
+  const [filterName, setFilterName] = useState('')
+  const [filterAccountNumber, setFilterAccountNumber] = useState('')
   const [createOpen, setCreateOpen]   = useState(false)
   const [editAccount, setEditAccount] = useState<PaymentAccount | null>(null)
   const [formError, setFormError]     = useState<string | null>(null)
@@ -633,6 +635,8 @@ export default function PaymentAccountsPage() {
     type:   filterType   || undefined,
     bankId: filterBankId || undefined,
     providerId: filterProviderId || undefined,
+    name: filterName || undefined,
+    accountNumber: filterAccountNumber || undefined,
   }
 
   const { data, isLoading, error } = usePaymentAccounts(filters, page, limit)
@@ -788,10 +792,34 @@ export default function PaymentAccountsPage() {
           </div>
         )}
 
+        {/* Hesap Adı Arama */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Hesap Adı</span>
+          <Input
+            type="text"
+            placeholder="Ara..."
+            value={filterName}
+            onChange={(e) => { setFilterName(e.target.value); setPage(1) }}
+            className="h-8 w-40 text-xs"
+          />
+        </div>
+
+        {/* IBAN/Adres Arama */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">IBAN/Adres</span>
+          <Input
+            type="text"
+            placeholder="Ara..."
+            value={filterAccountNumber}
+            onChange={(e) => { setFilterAccountNumber(e.target.value); setPage(1) }}
+            className="h-8 w-40 text-xs"
+          />
+        </div>
+
         {/* Sıfırla */}
-        {(filterStatus || filterType || filterBankId || filterProviderId) && (
+        {(filterStatus || filterType || filterBankId || filterProviderId || filterName || filterAccountNumber) && (
           <button
-            onClick={() => { setFilterStatus(''); setFilterType(''); setFilterBankId(''); setFilterProviderId(''); setPage(1) }}
+            onClick={() => { setFilterStatus(''); setFilterType(''); setFilterBankId(''); setFilterProviderId(''); setFilterName(''); setFilterAccountNumber(''); setPage(1) }}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
           >
             Filtreleri temizle

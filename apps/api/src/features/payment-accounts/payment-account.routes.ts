@@ -65,16 +65,18 @@ export const paymentAccountRoutes: FastifyPluginAsyncZod = async (app) => {
         type:   z.enum(['bank', 'crypto']).optional(),
         bankId: z.string().uuid().optional(),
         providerId: z.string().uuid().optional(),
+        name: z.string().optional(),
+        accountNumber: z.string().optional(),
         page:   z.coerce.number().int().min(1).default(1),
         limit:  z.coerce.number().int().min(1).max(100).default(20),
       }),
       response: { 200: PaymentAccountListResponseSchema },
     },
   }, async (request, reply) => {
-    const { status, type, bankId, providerId, page, limit } = request.query
+    const { status, type, bankId, providerId, name, accountNumber, page, limit } = request.query
     const result = await paymentAccountService.listAccounts(
       request.user.tenantId,
-      { status, type, bankId, providerId },
+      { status, type, bankId, providerId, name, accountNumber },
       page,
       limit,
     )
