@@ -27,7 +27,7 @@ function CreateMerchantDialog({
   isPending: boolean; error: string | null; isSuperAdmin: boolean
 }) {
   const [merchantName, setMerchantName] = useState('')
-  const [webhookUrl, setWebhookUrl]     = useState('https://gateway.pingiz.cloud/webhook')
+  const [webhookUrl, setWebhookUrl]     = useState('https://www.kipayz.com/webhook')
   const [isSandbox, setIsSandbox]       = useState(true)
   const [tenantId, setTenantId]         = useState('')
   const { data: tenantsData } = useTenants(1, 100, { enabled: isSuperAdmin })

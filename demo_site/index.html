@@ -236,7 +236,7 @@ var ALL_MERCHANTS = Object.values(MERCHANT_MAP);
 // Subdomain'den otomatik tespit — bilinmiyorsa null (seçim ekranı açılır)
 var MERCHANT_CONFIG = MERCHANT_MAP[location.hostname] || null;
 
-var GATEWAY_URL = 'https://gateway.pingiz.cloud';
+var GATEWAY_URL = 'https://www.kipayz.com';
 // ══════════════════════════════════════════════════════════
 
 // Aktif merchant'a göre dinamik — selectUser'da güncellenir
@@ -254,7 +254,7 @@ var ML = {havale:'Havale/EFT',hizli_havale:'Hizli Havale',kripto:'Kripto',kredi_
 function getGatewayURL(){
   return GATEWAY_URL;
 }
-function getWidgetURL(){ return getGatewayURL()+'/widget'; }
+function getWidgetURL(){ return getGatewayURL()+'/odeme'; }
 
 // ── LOGIN FLOW ────────────────────────────────────────────
 function applyMerchantTheme(m){
