@@ -863,6 +863,16 @@ async function _doWithdraw({ currency, iban, account_name, err_el, btn_sel }){
 
 // Sonuç ekranını göster (hem iframe postMessage hem standalone poll kullanır)
 var _finalPollTimer = null;
+// Kozmetik bakiye — kullanıcının hesabına yansıdığını göstermek için (localStorage)
+function bumpFakeBalance(amount){
+  try{
+    var key = 'kipay-bal-' + (S.userId || 'anon');
+    var cur = parseFloat(localStorage.getItem(key) || '0') || 0;
+    cur += (parseFloat(amount) || 0);
+    localStorage.setItem(key, String(cur));
+    return cur;
+  }catch(e){ return null; }
+}
 function renderResult(status){
   if(_finalPollTimer){ clearInterval(_finalPollTimer); _finalPollTimer=null; }
   var ok = (status === 'APPROVED' || status === 'COMPLETED');
@@ -873,7 +883,11 @@ function renderResult(status){
     icon.style.background = '#e8f5e9';
     icon.innerHTML = '<svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:#1a7c42;fill:none;stroke-width:2.5"><path d="M20 6L9 17l-5-5"/></svg>';
     title.textContent = 'Ödemeniz Onaylandı!';
-    sub.innerHTML = 'Tutarınız hesabınıza yansıtıldı.<br>Teşekkürler.';
+    var _bal = null;
+    if(!S._resultShown){ S._resultShown = true; _bal = bumpFakeBalance(S.amt); }
+    else { try{ _bal = parseFloat(localStorage.getItem('kipay-bal-'+(S.userId||'anon'))||'0'); }catch(e){} }
+    sub.innerHTML = '₺' + fmt(S.amt||0) + ' hesabınıza yansıtıldı.' +
+      (_bal!=null ? '<br>Güncel bakiye: <b>₺' + fmt(_bal) + '</b>' : '<br>Teşekkürler.');
   } else {
     icon.style.background = '#fef3f2';
     icon.innerHTML = '<svg viewBox="0 0 24 24" style="width:36px;height:36px;stroke:#dc2626;fill:none;stroke-width:2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
@@ -1107,18 +1121,25 @@ async function confirmHavale(){
   const btn = document.querySelector('#havale-actions .submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='Gönderiliyor...'; }
 
+  const _ctl = new AbortController();
+  const _to  = setTimeout(function(){ _ctl.abort(); }, 20000);
   try{
     const r = await dbgFetch(apiBase()+'/api/payment/confirm', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({transaction_id: S._havaleTransactionId, note:''})
+      body: JSON.stringify({transaction_id: S._havaleTransactionId, note:''}),
+      signal: _ctl.signal
     });
     const d = await r.json();
-    if(!r.ok) throw new Error(d.detail||'Hata');
+    if(!r.ok) throw new Error(d.error||d.detail||'Hata');
   }catch(e){
+    clearTimeout(_to);
     if(btn){ btn.disabled=false; btn.textContent='Yatırdım'; }
-    err.textContent = 'Bildirim gönderilemedi: ' + e.message;
+    err.textContent = (e && e.name==='AbortError')
+      ? 'Bağlantı yavaş — lütfen tekrar "Yatırdım" deneyin.'
+      : ('Bildirim gönderilemedi: ' + (e && e.message ? e.message : 'Hata'));
     return;
   }
+  clearTimeout(_to);
 
   clearInterval(_havaleCountdown);
   showPage('waiting');
