@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kipay — Merchant Entegrasyon Örneği</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:24px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:20px;margin-bottom:6px}
+  p.sub{color:#94a3b8;font-size:14px;margin-bottom:24px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px;margin-bottom:16px}
+  label{display:block;font-size:12px;color:#94a3b8;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  input{width:100%;padding:10px 12px;font-size:14px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;outline:none}
+  input:focus{border-color:#3b82f6}
+  button{margin-top:18px;width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer}
+  button:hover{background:#1d4ed8}
+  .note{font-size:12px;color:#f59e0b;margin-top:10px;line-height:1.5}
+  pre{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px;font-size:12px;overflow-x:auto;color:#cbd5e1;margin-top:8px}
+  #log{font-family:monospace;font-size:12px;color:#94a3b8;white-space:pre-wrap;margin-top:10px}
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1000}
+  .modal-overlay.open{display:flex}
+  .modal-frame{width:100%;max-width:440px;height:min(680px,90vh);border:0;border-radius:16px;background:#fff}
+  .modal-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none;width:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kipay — Merchant Entegrasyon Örneği</h1>
+  <p class="sub">Bu sayfa, sitenize ödeme widget'ını nasıl gömeceğinizi gösterir. Kullanıcı bilgileri (TC/ad/telefon) URL'de <b>açık taşınmaz</b> — opak token ile geçer.</p>
+
+  <div class="card">
+    <label>Tutar (₺)</label>
+    <input id="amount" type="number" value="1000" min="50">
+    <p class="note">Aşağıdaki kullanıcı bilgileri normalde sitenizde giriş yapmış üyeden gelir; burada demo için sabit.</p>
+    <button onclick="openDeposit()">Para Yatır</button>
+    <div id="log"></div>
+  </div>
+
+  <div class="card">
+    <h1 style="font-size:15px">Nasıl çalışır?</h1>
+    <p class="sub" style="margin:8px 0 0">1) <b>Sunucunuz</b> ödeme oturumu oluşturur (KYC'yi burada verir), opak token alır:</p>
+    <pre>POST https://www.kipayz.com/api/payment/session
+Content-Type: application/json
+
+{
+  "merchant_id": "&lt;MERCHANT_ID&gt;",
+  "user_id": "&lt;üye id&gt;",
+  "identity_number": "&lt;TC&gt;",
+  "first_name": "Ad", "last_name": "Soyad",
+  "phone": "+90XXXXXXXXXX"
+}
+→ { "token": "&lt;opak-token&gt;" }   // 15 dk geçerli</pre>
+    <p class="sub" style="margin:12px 0 0">2) Widget'ı bu token'la iframe/pencere olarak açarsınız:</p>
+    <pre>https://www.kipayz.com/odeme/&lt;MERCHANT_ID&gt;?page=deposit&amp;s=&lt;token&gt;</pre>
+    <p class="sub" style="margin:12px 0 0">3) Sonucu <code>postMessage</code> ile dinlersiniz: <code>pp-confirmed</code> (kullanıcı yatırdım dedi), <code>pp-close</code> (kapatıldı). Kesin onay için Callback URL'inize gelen imzalı bildirimi esas alın.</p>
+    <p class="note">⚠️ Üretimde <b>token'ı sunucunuzda oluşturun</b> (bu demo tarayıcıdan çağırıyor). Ayrıca site domain'iniz merchant "origin" ayarında tanımlı olmalı.</p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <button class="modal-close" onclick="closeModal()">&times;</button>
+  <iframe id="payFrame" class="modal-frame" src="about:blank" title="Ödeme"></iframe>
+</div>
+
+<script>
+  // ─── AYAR ───────────────────────────────────────────────
+  const GATEWAY = 'https://www.kipayz.com';
+  const MERCHANT_ID = '42979954-e556-4fa1-9c65-8f5633b84aa9';  // kendi merchant id'nizle değiştirin
+
+  // Demo üye bilgisi (üretimde giriş yapmış üyeden gelir)
+  const DEMO_USER = {
+    user_id: 'demo',
+    identity_number: '10000000146',
+    first_name: 'Murat',
+    last_name: 'Arslan',
+    phone: '+905551112233',
+  };
+
+  const log = (m) => { document.getElementById('log').textContent = m; };
+
+  async function openDeposit(){
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    if(amount < 50){ log('Minimum tutar ₺50'); return; }
+    log('Ödeme oturumu oluşturuluyor...');
+    try{
+      // 1) Oturum token'ı (ÜRETİMDE: bu çağrı sunucunuzdan yapılmalı!)
+      const res = await fetch(GATEWAY + '/api/payment/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant_id: MERCHANT_ID, ...DEMO_USER }),
+      });
+      const data = await res.json();
+      if(!res.ok || !data.token){ log('Oturum oluşturulamadı: ' + (data.error || res.status)); return; }
+
+      // 2) Widget'ı token ile aç (URL'de PII yok)
+      const url = GATEWAY + '/odeme/' + MERCHANT_ID + '?page=deposit&s=' + encodeURIComponent(data.token);
+      document.getElementById('payFrame').src = url;
+      document.getElementById('modal').classList.add('open');
+      log('');
+    }catch(e){ log('Hata: ' + e.message); }
+  }
+
+  function closeModal(){
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('payFrame').src = 'about:blank';
+  }
+
+  // 3) Widget'tan gelen mesajlar
+  window.addEventListener('message', function(e){
+    if(!e.data || !e.data.type) return;
+    if(e.data.type === 'pp-confirmed'){
+      log('Kullanıcı "Yatırdım" dedi. İşlem: ' + e.data.transaction_id + ' — panel onayı bekleniyor. (Kesin sonuç Callback URL\'inize gelecek.)');
+    } else if(e.data.type === 'pp-close'){
+      closeModal();
+    }
+  });
+</script>
+</body>
+</html>
