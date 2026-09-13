@@ -747,7 +747,13 @@ function notifySuccess(txId) {
 }
 
 function closeWidget(){
-  try{ parent.postMessage({type:'pp-close'},'*'); }catch(e){}
+  // Embed (iframe) modu → parent modal'ı kapatsın
+  var embedded=false;
+  try{ embedded = !!window.parent && window.parent !== window; }catch(e){ embedded=true; }
+  if(embedded){ try{ parent.postMessage({type:'pp-close'},'*'); }catch(e){} return; }
+  // Standalone → sekmeyi kapatmayı dene, olmazsa baştan başlat
+  try{ window.close(); }catch(e){}
+  location.href = location.pathname;
 }
 
 /* ════════════════════════
