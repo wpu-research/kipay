@@ -331,15 +331,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <input id="custom-amt" type="number" placeholder="Tutar girin (min. 50)" min="50" oninput="customAmt(this)">
       </div>
     </div>
-    <div class="card-box" id="kyc-box" style="margin-top:12px">
-      <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px">Kimlik Bilgileri</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <input id="kyc-first" type="text" placeholder="Ad" style="padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
-        <input id="kyc-last"  type="text" placeholder="Soyad" style="padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
-      </div>
-      <input id="kyc-tc" type="text" inputmode="numeric" maxlength="11" placeholder="TC Kimlik No (11 hane)" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)" style="width:100%;margin-top:10px;padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
-      <input id="kyc-phone" type="tel" maxlength="17" placeholder="Telefon (05XX XXX XX XX)" oninput="this.value=this.value.replace(/[^0-9+ ]/g,'')" style="width:100%;margin-top:10px;padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
-    </div>
     <div class="err-msg" id="dep-err"></div>
     <button class="submit-btn" onclick="depositNext()">
       <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -671,29 +662,17 @@ function kycBody(){
   };
 }
 // TC 11 hane, telefon +90XXXXXXXXXX; formdaki alanlardan S'e al ve doğrula
-// TC Kimlik checksum doğrulaması (panel ile aynı kural — 500 almamak için)
-function tcValid(tc){
-  if(!/^[1-9][0-9]{10}$/.test(tc)) return false;
-  const d=tc.split('').map(Number);
-  const odd=d[0]+d[2]+d[4]+d[6]+d[8];
-  const even=d[1]+d[3]+d[5]+d[7];
-  if(((odd*7-even)%10+10)%10 !== d[9]) return false;
-  if((d.slice(0,10).reduce((a,b)=>a+b,0))%10 !== d[10]) return false;
-  return true;
-}
+// Kullanıcı bilgileri (TC/isim/soyisim/telefon) merchant tarafından URL ile geçilir;
+// widget form göstermez.
 function collectKyc(){
-  if(_kycFromUrl) return true;  // merchant zaten geçmiş
-  const g=id=>(document.getElementById(id)?.value||'').trim();
-  S.tc=g('kyc-tc'); S.firstName=g('kyc-first'); S.lastName=g('kyc-last');
-  let ph=g('kyc-phone').replace(/\s/g,'');
-  if(ph && !ph.startsWith('+')){ ph = ph.startsWith('0') ? '+9'+ph : '+90'+ph; }
-  S.phone=ph;
   const err=document.getElementById('dep-err');
-  if(!S.firstName||!S.lastName){ if(err)err.textContent='Ad ve soyad zorunlu.'; return false; }
-  if(!/^[0-9]{11}$/.test(S.tc)){ if(err)err.textContent='TC Kimlik No 11 haneli olmalı.'; return false; }
-  if(!tcValid(S.tc)){ if(err)err.textContent='Geçersiz TC Kimlik No (doğrulama başarısız).'; return false; }
-  if(!/^\+90[0-9]{10}$/.test(S.phone)){ if(err)err.textContent='Telefon 05XX XXX XX XX (veya +90…) formatında olmalı.'; return false; }
-  return true;
+  // Telefon normalize (05.. -> +90..)
+  if(S.phone && !String(S.phone).startsWith('+')){
+    S.phone = String(S.phone).startsWith('0') ? '+9'+S.phone : '+90'+S.phone;
+  }
+  if(S.tc && S.firstName && S.lastName && S.phone) return true;
+  if(err) err.textContent = 'Kullanıcı bilgileri eksik. Ödeme sayfası siteniz üzerinden açılmalıdır.';
+  return false;
 }
 let selectedAmt = _urlAmt || 0;
 
@@ -1329,8 +1308,6 @@ function depositNext(){
 
 /* INIT */
 renderTxns();
-// Merchant KYC'yi URL ile geçtiyse formu gizle
-if (_kycFromUrl) { var _kb=document.getElementById('kyc-box'); if(_kb) _kb.style.display='none'; }
 // iframe modunda _urlPage'e göre sayfa — DOMContentLoaded'da zaten ayarlanıyor
 if (!_urlPage) showPage('home');
 </script>
