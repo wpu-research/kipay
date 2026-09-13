@@ -70,8 +70,10 @@ export const transactionService = {
 
     const isCrypto = input.currency.toUpperCase() === 'CRYPTO'
     const { environment } = await validateRouting({ tenantId, merchantId, currency: input.currency })
+    // Onay süresi — kullanıcı bu süre içinde "Yatırdım" demezse job otomatik REJECTED yapar.
+    // Havale ve kripto için de geçerli.
     const STARTED_EXPIRES_MINUTES = 30
-    const startedExpiresAt = isCrypto ? new Date(Date.now() + STARTED_EXPIRES_MINUTES * 60 * 1000) : undefined
+    const startedExpiresAt = new Date(Date.now() + STARTED_EXPIRES_MINUTES * 60 * 1000)
 
     const { row, depositAddress, accountName } = await db.transaction(async (tx) => {
       // Block kontrolü — TOCTOU önlemi

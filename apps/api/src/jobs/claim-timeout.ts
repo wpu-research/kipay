@@ -1,5 +1,5 @@
 import type { PgBoss } from 'pg-boss'
-import { db, transactions, eq, and } from '@panel/db'
+import { db, transactions, eq, and, inArray } from '@panel/db'
 
 export async function claimTimeout(
   jobs: Array<{ data: { transactionId: string; type?: 'started' | 'claim' } }>,
@@ -28,8 +28,36 @@ export async function claimTimeout(
         retryDelay:   120,
         singletonKey: transactionId,  // 5-4: idempotent enqueue
       })
+      return
+    }
+
+    // Havale: kullanıcı süre içinde "Yatırdım" (playerConfirmed) demediyse otomatik REJECTED.
+    // Onaylanmış (playerConfirmed=true) veya terminal işlemler etkilenmez.
+    const [autoRejected] = await db
+      .update(transactions)
+      .set({
+        status:         'REJECTED',
+        note:           'Otomatik red: kullanıcı ödeme onayı (Yatırdım) vermedi — süre doldu.',
+        callbackStatus: 'pending',
+        updatedAt:      new Date(),
+      })
+      .where(and(
+        eq(transactions.id, transactionId),
+        eq(transactions.type, 'deposit'),
+        eq(transactions.playerConfirmed, false),
+        inArray(transactions.status, ['PENDING', 'PROCESSING']),
+      ))
+      .returning({ id: transactions.id })
+
+    if (autoRejected) {
+      console.log(`[claim-timeout] Deposit ${transactionId} otomatik REJECTED (onay verilmedi)`)
+      await boss.send('callback-retry', { transactionId }, {
+        retryLimit:   4,
+        retryDelay:   120,
+        singletonKey: transactionId,
+      })
     } else {
-      console.log(`[claim-timeout] Deposit ${transactionId} zaten confirm edilmiş/iptal — atlandı`)
+      console.log(`[claim-timeout] Deposit ${transactionId} zaten confirm edilmiş/terminal — atlandı`)
     }
     return
   }
