@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/site-header'
 import { MasqueradeBanner } from '@/components/layout/masquerade-banner'
 import { SessionTimeoutGuard } from '@/components/session-timeout-guard'
 import { SseProvider } from '@/features/notifications/SseProvider'
+import { FloatingChat } from '@/features/chat/FloatingChat'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import type { UserRole } from '@/types/auth'
 
@@ -74,6 +75,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {children}
             </div>
           </SidebarInset>
+          {['tenant_admin', 'finans_admin', 'finans_operator'].includes(user.role) && <FloatingChat />}
         </SidebarProvider>
       </SessionTimeoutGuard>
     </SseProvider>
