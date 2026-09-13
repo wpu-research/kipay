@@ -9,6 +9,14 @@ import { paymentEnv } from './env';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
+export interface PanelUserInfo {
+  identityNumber: string;
+  firstName:      string;
+  lastName:       string;
+  phone:          string;
+  middleName?:    string;
+}
+
 export interface DepositInitiateResult {
   txId:           string;
   status:         string;
@@ -192,10 +200,23 @@ export async function apiDepositInitiate(
   secret?: string,
   merchantId?: string,
   depositMethod?: string,
+  userInfo?: PanelUserInfo,
 ): Promise<DepositInitiateResult> {
   if (useMock()) return mockDepositInitiate(externalUserId, amount, currency);
 
-  const body = { externalUserId, amount: amount.toFixed(2), currency, depositMethod };
+  // Panel initiate şeması userInfo'yu (TC kimlik dahil) zorunlu tutar; memberId
+  // externalUserId ile aynı olmalı.
+  const body: Record<string, unknown> = { externalUserId, amount: amount.toFixed(2), currency, depositMethod };
+  if (userInfo) {
+    body.userInfo = {
+      identityNumber: userInfo.identityNumber,
+      memberId:       externalUserId,
+      firstName:      userInfo.firstName,
+      middleName:     userInfo.middleName ?? '',
+      lastName:       userInfo.lastName,
+      phone:          userInfo.phone,
+    };
+  }
   const data = await merchantRequest('POST', '/merchant/v1/deposit/initiate', body, keyId, secret, merchantId);
 
   const txId   = String(data['txId'] ?? '');

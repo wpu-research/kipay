@@ -331,6 +331,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <input id="custom-amt" type="number" placeholder="Tutar girin (min. 50)" min="50" oninput="customAmt(this)">
       </div>
     </div>
+    <div class="card-box" id="kyc-box" style="margin-top:12px">
+      <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px">Kimlik Bilgileri</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="kyc-first" type="text" placeholder="Ad" style="padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
+        <input id="kyc-last"  type="text" placeholder="Soyad" style="padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
+      </div>
+      <input id="kyc-tc" type="text" inputmode="numeric" maxlength="11" placeholder="TC Kimlik No" style="width:100%;margin-top:10px;padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
+      <input id="kyc-phone" type="tel" placeholder="Telefon (05XX XXX XX XX)" style="width:100%;margin-top:10px;padding:10px 12px;font-size:14px;border:1px solid #e5e7eb;border-radius:10px;outline:none">
+    </div>
     <div class="err-msg" id="dep-err"></div>
     <button class="submit-btn" onclick="depositNext()">
       <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -641,9 +650,41 @@ const _urlUser    = _urlp.get('user_id')     || null;
 const _urlPage    = _urlp.get('page')        || null;
 const _urlMethod  = _urlp.get('method')      || null;
 const _urlBalance = _urlp.has('balance') ? parseFloat(_urlp.get('balance')) : null;
+// KYC — panel initiate TC kimlik dahil userInfo'yu zorunlu tutar. Merchant embed
+// ederken URL ile geçebilir; geçmezse standalone formda kullanıcı girer.
+const _urlTc      = _urlp.get('identity_number') || _urlp.get('tc') || '';
+const _urlFirst   = _urlp.get('first_name') || '';
+const _urlLast    = _urlp.get('last_name')  || '';
+const _urlPhone   = _urlp.get('phone')      || '';
+const _kycFromUrl = !!(_urlTc && _urlFirst && _urlLast && _urlPhone);
 
 let S = {method:_urlMethod||null, amt:_urlAmt||0, bank:null, sessionId:null, dekontB64:null,
-         merchantId:_urlMerchant, userId:_urlUser};
+         merchantId:_urlMerchant, userId:_urlUser,
+         tc:_urlTc, firstName:_urlFirst, lastName:_urlLast, phone:_urlPhone};
+
+// initiate gövdesine eklenecek KYC alanları
+function kycBody(){
+  return {
+    identity_number: S.tc || '',
+    first_name:      S.firstName || '',
+    last_name:       S.lastName || '',
+    phone:           S.phone || '',
+  };
+}
+// TC 11 hane, telefon +90XXXXXXXXXX; formdaki alanlardan S'e al ve doğrula
+function collectKyc(){
+  if(_kycFromUrl) return true;  // merchant zaten geçmiş
+  const g=id=>(document.getElementById(id)?.value||'').trim();
+  S.tc=g('kyc-tc'); S.firstName=g('kyc-first'); S.lastName=g('kyc-last');
+  let ph=g('kyc-phone').replace(/\s/g,'');
+  if(ph && !ph.startsWith('+')){ ph = ph.startsWith('0') ? '+9'+ph : '+90'+ph; }
+  S.phone=ph;
+  const err=document.getElementById('dep-err');
+  if(!/^[0-9]{11}$/.test(S.tc)){ if(err)err.textContent='Geçerli bir TC Kimlik No girin (11 hane).'; return false; }
+  if(!S.firstName||!S.lastName){ if(err)err.textContent='Ad ve soyad zorunlu.'; return false; }
+  if(!/^\+90[0-9]{10}$/.test(S.phone)){ if(err)err.textContent='Telefon +90XXXXXXXXXX formatında olmalı.'; return false; }
+  return true;
+}
 let selectedAmt = _urlAmt || 0;
 
 // iframe modunda navbar ve engine bar'ı gizle
@@ -978,7 +1019,8 @@ async function startHavaleManuel(){
         user_id:     S.userId||'demo',
         method:      'havale',
         amount:      S.amt,
-        currency:    'TRY'
+        currency:    'TRY',
+        ...kycBody()
       })
     });
 
@@ -1068,7 +1110,8 @@ async function startKripto(){
         user_id:     S.userId||'demo',
         method:      'kripto',
         amount:      S.amt,
-        currency:    'TRY'
+        currency:    'TRY',
+        ...kycBody()
       })
     });
     const d = await r.json();
@@ -1213,6 +1256,7 @@ function depositNext(){
   const a=selectedAmt||parseFloat(document.getElementById('custom-amt').value)||0;
   if(a<50){document.getElementById('dep-err').textContent='Minimum tutar ₺50 olmalıdır.';return}
   if(a>50000){document.getElementById('dep-err').textContent='Maksimum tutar ₺50.000 olmalıdır.';return}
+  if(!collectKyc()) return;
   S.amt=a;
 
   if(S.method==='havale'){
@@ -1224,6 +1268,8 @@ function depositNext(){
 
 /* INIT */
 renderTxns();
+// Merchant KYC'yi URL ile geçtiyse formu gizle
+if (_kycFromUrl) { var _kb=document.getElementById('kyc-box'); if(_kb) _kb.style.display='none'; }
 // iframe modunda _urlPage'e göre sayfa — DOMContentLoaded'da zaten ayarlanıyor
 if (!_urlPage) showPage('home');
 </script>

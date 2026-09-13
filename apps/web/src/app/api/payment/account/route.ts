@@ -17,6 +17,11 @@ interface Body {
   bank_id?:    string
   amount:      number
   currency?:   string
+  // KYC — panel initiate şeması TC kimlik dahil userInfo'yu zorunlu tutar.
+  identity_number?: string
+  first_name?:      string
+  last_name?:       string
+  phone?:           string
 }
 
 export async function POST(request: NextRequest) {
@@ -40,8 +45,17 @@ export async function POST(request: NextRequest) {
     }
 
     const initCurrency = method === 'kripto' ? 'crypto' : 'TRY'
+    const userInfo = body.identity_number && body.first_name && body.last_name && body.phone
+      ? {
+          identityNumber: body.identity_number,
+          firstName:      body.first_name,
+          lastName:       body.last_name,
+          phone:          body.phone,
+        }
+      : undefined
+
     const data = await apiDepositInitiate(
-      user_id ?? 'anonymous', amount, initCurrency, creds.keyId, creds.secret, merchant_id, method,
+      user_id ?? 'anonymous', amount, initCurrency, creds.keyId, creds.secret, merchant_id, method, userInfo,
     )
 
     const txId = data.txId ?? ''
