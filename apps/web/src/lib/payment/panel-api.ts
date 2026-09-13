@@ -93,7 +93,9 @@ function makeHeaders(bodyRaw: string, keyId?: string, secret?: string, merchantI
 
   return {
     'Content-Type':  'application/json',
-    'X-API-Key':     `${_keyId}:${_secret}`,
+    // Panel keyId-only doğrulama kullanır — secret X-API-Key'de GÖNDERİLMEZ,
+    // yalnızca HMAC imzasında kullanılır.
+    'X-API-Key':     _keyId,
     'X-Merchant-Id': _merchantId,
     'X-Timestamp':   timestamp,
     'X-Nonce':       nonce,
