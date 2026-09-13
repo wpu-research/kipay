@@ -8,6 +8,12 @@ export function useTransactionDetail(id: string) {
     queryKey: ['transaction', id],
     queryFn:  () => apiClient.get<TransactionDetail>(`/api/v1/transactions/${id}`),
     enabled:  !!id,
+    // İşlem beklemedeyken (claim/"yatırdım" gibi canlı değişiklikler) otomatik tazele.
+    // Terminal durumda (APPROVED/REJECTED/...) polling durur.
+    refetchInterval: (q) => {
+      const s = (q.state.data as TransactionDetail | undefined)?.data?.status
+      return s === 'PENDING' || s === 'PROCESSING' || s === 'FLAGGED' ? 5000 : false
+    },
   })
 }
 
