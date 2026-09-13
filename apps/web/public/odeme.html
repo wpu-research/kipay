@@ -1142,7 +1142,7 @@ async function dbgFetch(url, opts){
 // URL parametrelerinden oku (iframe/embed modunda)
 const _urlp       = new URLSearchParams(window.location.search);
 const _urlAmt     = parseFloat(_urlp.get('amount'))     || 0;
-const _urlMerchant= _urlp.get('merchant_id') || null;
+const _urlMerchant= _urlp.get('merchant_id') || window.__KIPAY_MERCHANT_ID || null;
 const _urlUser    = _urlp.get('user_id')     || null;
 const _urlPage    = _urlp.get('page')        || null;
 const _urlMethod  = _urlp.get('method')      || null;
