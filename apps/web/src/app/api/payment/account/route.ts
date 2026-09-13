@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { alertNoAccount, checkMerchant } from '@/lib/payment/merchant'
 import { apiDepositInitiate, cleanupTxCreds, storeTxCreds } from '@/lib/payment/panel-api'
+import { decryptSession } from '@/lib/payment/session-token'
 import { enforceRateLimit } from '@/lib/payment/rate-limit'
 
 export const runtime = 'nodejs'
@@ -23,6 +24,7 @@ interface Body {
   first_name?:      string
   last_name?:       string
   phone?:           string
+  session?:         string  // opak token — varsa KYC bundan çözülür
 }
 
 export async function POST(request: NextRequest) {
@@ -48,17 +50,20 @@ export async function POST(request: NextRequest) {
     }
 
     const initCurrency = method === 'kripto' ? 'crypto' : 'TRY'
-    const userInfo = body.identity_number && body.first_name && body.last_name && body.phone
-      ? {
-          identityNumber: body.identity_number,
-          firstName:      body.first_name,
-          lastName:       body.last_name,
-          phone:          body.phone,
-        }
-      : undefined
+    // Opak token varsa KYC ve user_id oradan (URL'de PII taşımamak için)
+    const sess = body.session ? decryptSession(body.session) : null
+    if (body.session && !sess) {
+      return NextResponse.json({ error: 'Oturum bilgisi geçersiz veya süresi dolmuş.' }, { status: 400 })
+    }
+    const effUserId = sess?.userId ?? user_id ?? 'anonymous'
+    const userInfo = sess
+      ? { identityNumber: sess.identityNumber, firstName: sess.firstName, lastName: sess.lastName, phone: sess.phone }
+      : (body.identity_number && body.first_name && body.last_name && body.phone
+          ? { identityNumber: body.identity_number, firstName: body.first_name, lastName: body.last_name, phone: body.phone }
+          : undefined)
 
     const data = await apiDepositInitiate(
-      user_id ?? 'anonymous', amount, initCurrency, creds.keyId, creds.secret, merchant_id, method, userInfo,
+      effUserId, amount, initCurrency, creds.keyId, creds.secret, merchant_id, method, userInfo,
     )
 
     const txId = data.txId ?? ''

@@ -647,13 +647,15 @@ const _urlFirst   = _urlp.get('first_name') || '';
 const _urlLast    = _urlp.get('last_name')  || '';
 const _urlPhone   = _urlp.get('phone')      || '';
 const _kycFromUrl = !!(_urlTc && _urlFirst && _urlLast && _urlPhone);
+const _urlSession = _urlp.get('s') || null;  // opak KYC token'ı
 
 let S = {method:_urlMethod||null, amt:_urlAmt||0, bank:null, sessionId:null, dekontB64:null,
          merchantId:_urlMerchant, userId:_urlUser,
-         tc:_urlTc, firstName:_urlFirst, lastName:_urlLast, phone:_urlPhone};
+         tc:_urlTc, firstName:_urlFirst, lastName:_urlLast, phone:_urlPhone, _session:_urlSession};
 
 // initiate gövdesine eklenecek KYC alanları
 function kycBody(){
+  if(S._session) return { session: S._session };  // PII token içinde, URL'de açık değil
   return {
     identity_number: S.tc || '',
     first_name:      S.firstName || '',
@@ -665,6 +667,7 @@ function kycBody(){
 // Kullanıcı bilgileri (TC/isim/soyisim/telefon) merchant tarafından URL ile geçilir;
 // widget form göstermez.
 function collectKyc(){
+  if(S._session) return true;  // KYC token'da, sunucuda çözülür
   const err=document.getElementById('dep-err');
   // Telefon normalize (05.. -> +90..)
   if(S.phone && !String(S.phone).startsWith('+')){
