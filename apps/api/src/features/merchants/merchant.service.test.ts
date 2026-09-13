@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('argon2', () => ({ hash: vi.fn().mockResolvedValue('hashed') }))
+
 vi.mock('@panel/db', () => {
   return {
     db: {
-      query:       { merchants: { findFirst: vi.fn() } },
+      query:       { merchants: { findFirst: vi.fn() }, users: { findFirst: vi.fn() } },
       insert:      vi.fn(),
       update:      vi.fn(),
       transaction: vi.fn(),
     },
     merchants: {},
+    users: {},
     eq:  vi.fn((col, val) => ({ col, val })),
     and: vi.fn((...args: unknown[]) => ({ and: args })),
     sql: vi.fn((strings: TemplateStringsArray) => strings[0]),
@@ -19,7 +22,7 @@ import { db } from '@panel/db'
 import { merchantService } from './merchant.service.js'
 
 const mockDb = db as unknown as {
-  query:       { merchants: { findFirst: ReturnType<typeof vi.fn> } }
+  query:       { merchants: { findFirst: ReturnType<typeof vi.fn> }; users: { findFirst: ReturnType<typeof vi.fn> } }
   insert:      ReturnType<typeof vi.fn>
   update:      ReturnType<typeof vi.fn>
   transaction: ReturnType<typeof vi.fn>
@@ -44,9 +47,20 @@ const mockMerchant = {
 }
 
 const createInput = {
-  merchantName: 'Test Merchant',
-  webhookUrl:   'https://example.com/webhook',
-  isSandbox:    true,
+  merchantName:  'Test Merchant',
+  webhookUrl:    'https://example.com/webhook',
+  isSandbox:     true,
+  panelUsername: 'testmerchant',
+  panelPassword: 'Sifre1234!',
+}
+
+// db.transaction(cb) → cb'yi insert destekli bir tx ile çağır
+function mockTxReturning(rows: unknown[]) {
+  return (cb: (tx: unknown) => unknown) => cb({
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue(rows) }),
+    }),
+  })
 }
 
 beforeEach(() => {
@@ -56,11 +70,8 @@ beforeEach(() => {
 describe('merchantService.createMerchant', () => {
   it('başarılı oluşturma — merchant döner', async () => {
     mockDb.query.merchants.findFirst.mockResolvedValueOnce(null)
-    mockDb.insert.mockReturnValueOnce({
-      values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue([mockMerchant]),
-      }),
-    })
+    mockDb.query.users.findFirst.mockResolvedValueOnce(null)
+    mockDb.transaction.mockImplementationOnce(mockTxReturning([mockMerchant]))
 
     const result = await merchantService.createMerchant(TENANT_A, createInput)
     expect(result.merchantName).toBe('Test Merchant')
@@ -78,11 +89,8 @@ describe('merchantService.createMerchant', () => {
   it('farklı tenant, aynı ad → başarılı (izolasyon)', async () => {
     // TENANT_B için findFirst null döner (farklı tenant'ta çakışma yok)
     mockDb.query.merchants.findFirst.mockResolvedValueOnce(null)
-    mockDb.insert.mockReturnValueOnce({
-      values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue([{ ...mockMerchant, tenantId: TENANT_B }]),
-      }),
-    })
+    mockDb.query.users.findFirst.mockResolvedValueOnce(null)
+    mockDb.transaction.mockImplementationOnce(mockTxReturning([{ ...mockMerchant, tenantId: TENANT_B }]))
 
     const result = await merchantService.createMerchant(TENANT_B, createInput)
     expect(result.tenantId).toBe(TENANT_B)

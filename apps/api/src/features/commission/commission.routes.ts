@@ -8,7 +8,8 @@ import { commissionService } from './commission.service.js'
 import { authenticate } from '../../middleware/auth.js'
 import { AppError } from '../../errors/app-error.js'
 
-const REPORT_ROLES = ['super_admin', 'tenant_admin', 'finans_admin']
+const REPORT_ROLES = ['super_admin', 'tenant_admin', 'finans_admin', 'merchant']  // /report
+const ADMIN_ROLES  = ['super_admin', 'tenant_admin', 'finans_admin']              // /rates, /settlements (okuma)
 const WRITE_ROLES  = ['super_admin', 'tenant_admin']
 
 export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -21,9 +22,9 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
       tags:        ['Commission'], summary: 'Gelir/gider (komisyon) raporu',
     },
   }, async (request, reply) => {
-    const { role, tenantId } = request.user
+    const { role, tenantId, merchantId } = request.user
     if (!REPORT_ROLES.includes(role)) throw new AppError('FORBIDDEN', 'Bu rapora erişim yetkiniz yok.', 403)
-    const result = await commissionService.getReport({ role, callerTenantId: tenantId, ...request.query })
+    const result = await commissionService.getReport({ role, callerTenantId: tenantId, callerMerchantId: merchantId, ...request.query })
     return reply.send(result)
   })
 
@@ -37,7 +38,7 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   }, async (request, reply) => {
     const { role, tenantId } = request.user
-    if (!REPORT_ROLES.includes(role)) throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
+    if (!ADMIN_ROLES.includes(role)) throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
     const data = await commissionService.listRates({ role, callerTenantId: tenantId, ...request.query })
     return reply.send({ data })
   })
@@ -67,7 +68,7 @@ export const commissionRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   }, async (request, reply) => {
     const { role, tenantId } = request.user
-    if (!REPORT_ROLES.includes(role)) throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
+    if (!ADMIN_ROLES.includes(role)) throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
     const data = await commissionService.listSettlements({ role, callerTenantId: tenantId, ...request.query })
     return reply.send({ data })
   })

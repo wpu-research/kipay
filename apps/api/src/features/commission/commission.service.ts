@@ -31,10 +31,17 @@ function scopeTenant(role: string, callerTenantId?: string, wantTenantId?: strin
 
 export const commissionService = {
   async getReport(params: {
-    role: string; callerTenantId?: string
+    role: string; callerTenantId?: string; callerMerchantId?: string
     tenantId?: string; merchantId?: string; from?: string; to?: string
   }) {
-    const tenantScope = scopeTenant(params.role, params.callerTenantId, params.tenantId)
+    // Merchant rolü: yalnızca kendi merchant'ı
+    if (params.role === 'merchant') {
+      if (!params.callerMerchantId) throw new AppError('FORBIDDEN', 'Merchant hesabı bir siteye bağlı değil.', 403)
+      params = { ...params, merchantId: params.callerMerchantId, tenantId: params.callerTenantId }
+    }
+    const tenantScope = params.role === 'merchant'
+      ? params.callerTenantId
+      : scopeTenant(params.role, params.callerTenantId, params.tenantId)
     if (tenantScope === null) throw new AppError('FORBIDDEN', 'Bu rapora erişim yetkiniz yok.', 403)
 
     const conds = [sql`${transactions.status} IN ('APPROVED', 'COMPLETED')`]

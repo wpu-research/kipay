@@ -7,6 +7,9 @@ export const CreateMerchantSchema = z.object({
   webhookUrl:   z.string().url('Geçerli bir URL giriniz'),
   isSandbox:    z.boolean().default(true),
   tenantId:     z.string().uuid().optional(), // sadece super_admin gönderir
+  // Merchant panel kullanıcısı — merchant ile birlikte otomatik oluşturulur.
+  panelUsername: z.string().min(3).max(64),
+  panelPassword: z.string().min(8).max(128),
 })
 
 export const UpdateMerchantStatusSchema = z.object({

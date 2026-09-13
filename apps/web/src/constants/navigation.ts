@@ -19,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Kripto Paralar',     href: '/cryptos',          icon: 'Coins' },
   { title: 'Raporlar',           href: '/report_general',   icon: 'BarChart3' },
   { title: 'Gelir/Gider',        href: '/report_finance',   icon: 'Wallet' },
+  { title: 'Widget & Entegrasyon', href: '/entegrasyon',    icon: 'Store' },
   { title: 'Audit Loglar',       href: '/audit-logs',       icon: 'ClipboardList' },
   { title: 'Kullanıcı Hareketleri', href: '/user-activity', icon: 'Activity' },
   { title: 'Ayarlar',            href: '/settings',         icon: 'Settings' },
@@ -37,7 +38,7 @@ export const ROLE_NAV_PERMISSIONS: Record<UserRole, string[]> = {
   ],
   finans_admin:    ['/transactions', '/transactions/new', '/chat', '/payment-accounts', '/payment-accounts/min-max', '/user-activity'],
   finans_operator: ['/transactions', '/transactions/new', '/chat', '/user-activity'],
-  merchant:        ['/transactions'],
+  merchant:        ['/transactions', '/report_finance', '/entegrasyon'],
 }
 
 export function getNavItemsForRole(role: UserRole | undefined): NavItem[] {

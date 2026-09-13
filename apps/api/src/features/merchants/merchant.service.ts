@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { db, merchants, tenants, transactions, blockedPlayers, warningRules, eq, and, sql } from '@panel/db'
+import * as argon2 from 'argon2'
+import { db, merchants, tenants, transactions, blockedPlayers, warningRules, users, eq, and, sql } from '@panel/db'
 import { AppError } from '../../errors/app-error.js'
 import type { CreateMerchantInput } from '@panel/types'
 
@@ -16,20 +17,42 @@ export const merchantService = {
       throw new AppError('MERCHANT_NAME_CONFLICT', 'Bu merchant adı zaten kullanılıyor.', 409)
     }
 
+    // Panel kullanıcı adı çakışması — merchant oluşturmadan önce kontrol
+    const usernameTaken = await db.query.users.findFirst({ where: eq(users.username, data.panelUsername) })
+    if (usernameTaken) {
+      throw new AppError('USERNAME_CONFLICT', 'Bu panel kullanıcı adı zaten kullanılıyor.', 409)
+    }
+
     try {
       const callbackSecret = randomBytes(32).toString('hex')
-      const [merchant] = await db.insert(merchants).values({
-        tenantId,
-        merchantName:   data.merchantName,
-        webhookUrl:     data.webhookUrl,
-        isSandbox:      data.isSandbox ?? true,
-        callbackSecret,
-      }).returning()
-      return merchant!
+      const passwordHash   = await argon2.hash(data.panelPassword)
+
+      // Merchant + panel kullanıcısı atomik oluşturulur
+      const merchant = await db.transaction(async (tx) => {
+        const [m] = await tx.insert(merchants).values({
+          tenantId,
+          merchantName:   data.merchantName,
+          webhookUrl:     data.webhookUrl,
+          isSandbox:      data.isSandbox ?? true,
+          callbackSecret,
+        }).returning()
+        await tx.insert(users).values({
+          tenantId,
+          merchantId:   m!.id,
+          username:     data.panelUsername,
+          passwordHash,
+          role:         'merchant',
+        })
+        return m!
+      })
+      return merchant
     } catch (err: unknown) {
       // DB unique constraint ihlali (race condition senaryosu)
       if (err instanceof Error && err.message.includes('merchants_tenant_name_unique')) {
         throw new AppError('MERCHANT_NAME_CONFLICT', 'Bu merchant adı zaten kullanılıyor.', 409)
+      }
+      if (err instanceof Error && err.message.includes('users_username_unique')) {
+        throw new AppError('USERNAME_CONFLICT', 'Bu panel kullanıcı adı zaten kullanılıyor.', 409)
       }
       throw err
     }

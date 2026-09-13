@@ -343,8 +343,8 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     preHandler: [authenticate],
     schema: { tags: ['Auth'], summary: 'Mevcut kullanıcı bilgisi', response: { 200: MeResponseSchema } },
   }, async (request) => {
-    const { userId, username, role, tenantId, masquerading, originalUserId } = request.user
-    return { user: { id: userId, username, role, tenantId, masquerading, originalUserId } }
+    const { userId, username, role, tenantId, merchantId, masquerading, originalUserId } = request.user
+    return { user: { id: userId, username, role, tenantId, merchantId: merchantId ?? null, masquerading, originalUserId } }
   })
 
   // POST /masquerade/exit — Masquerade'den çık (AC: 3)

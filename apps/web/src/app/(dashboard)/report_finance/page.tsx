@@ -27,7 +27,8 @@ export default function FinanceReportPage() {
   const [range, setRange] = useState<DateRange | undefined>()
   const [merchantId, setMerchantId] = useState('')
 
-  const { data: merchantsData } = useMerchants(1, 100)
+  const isMerchant = role === 'merchant'
+  const { data: merchantsData } = useMerchants(1, 100, undefined, !isMerchant)
   const merchants = merchantsData?.data ?? []
 
   const from = range?.from ? format(range.from, 'yyyy-MM-dd') : undefined
@@ -44,14 +45,16 @@ export default function FinanceReportPage() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <DateRangePicker value={range} onChange={setRange} />
-          <select
-            className="h-9 rounded-md border bg-background px-3 text-sm"
-            value={merchantId}
-            onChange={(e) => setMerchantId(e.target.value)}
-          >
-            <option value="">Tüm siteler</option>
-            {merchants.map((m) => <option key={m.id} value={m.id}>{m.merchantName}</option>)}
-          </select>
+          {!isMerchant && (
+            <select
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+              value={merchantId}
+              onChange={(e) => setMerchantId(e.target.value)}
+            >
+              <option value="">Tüm siteler</option>
+              {merchants.map((m) => <option key={m.id} value={m.id}>{m.merchantName}</option>)}
+            </select>
+          )}
           {canWrite && <SettlementDialog merchants={merchants} />}
           {canWrite && <RatesDialog merchants={merchants} />}
         </div>

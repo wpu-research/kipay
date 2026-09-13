@@ -30,10 +30,12 @@ function CreateMerchantDialog({
   const [webhookUrl, setWebhookUrl]     = useState('https://www.kipayz.com/webhook')
   const [isSandbox, setIsSandbox]       = useState(true)
   const [tenantId, setTenantId]         = useState('')
+  const [panelUsername, setPanelUsername] = useState('')
+  const [panelPassword, setPanelPassword] = useState('')
   const { data: tenantsData } = useTenants(1, 100, { enabled: isSuperAdmin })
   const tenantList = tenantsData?.data ?? []
 
-  const isValid = merchantName.trim().length >= 2 && webhookUrl.trim().length > 0 && (!isSuperAdmin || tenantId !== '')
+  const isValid = merchantName.trim().length >= 2 && webhookUrl.trim().length > 0 && panelUsername.trim().length >= 3 && panelPassword.length >= 8 && (!isSuperAdmin || tenantId !== '')
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -60,6 +62,17 @@ function CreateMerchantDialog({
             <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Webhook URL *</label>
             <Input type="url" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} />
           </div>
+          <div className="rounded-md border border-dashed p-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Panel Kullanıcısı (merchant bu bilgilerle giriş yapar)</p>
+            <div className="space-y-1">
+              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Kullanıcı Adı *</label>
+              <Input value={panelUsername} onChange={(e) => setPanelUsername(e.target.value)} placeholder="En az 3 karakter" autoComplete="off" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Şifre *</label>
+              <Input type="password" value={panelPassword} onChange={(e) => setPanelPassword(e.target.value)} placeholder="En az 8 karakter" autoComplete="new-password" />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <Checkbox id="isSandbox" checked={isSandbox} onCheckedChange={(v) => setIsSandbox(!!v)} />
             <label htmlFor="isSandbox" className="text-sm">Sandbox modu</label>
@@ -68,7 +81,7 @@ function CreateMerchantDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isPending}>İptal</Button>
-          <Button onClick={() => onConfirm({ merchantName, webhookUrl, isSandbox, ...(isSuperAdmin && tenantId ? { tenantId } : {}) })} disabled={isPending || !isValid}>
+          <Button onClick={() => onConfirm({ merchantName, webhookUrl, isSandbox, panelUsername, panelPassword, ...(isSuperAdmin && tenantId ? { tenantId } : {}) })} disabled={isPending || !isValid}>
             {isPending ? 'Oluşturuluyor...' : 'Oluştur'}
           </Button>
         </DialogFooter>

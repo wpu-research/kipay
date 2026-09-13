@@ -181,10 +181,14 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
       response: { 200: TransactionDetailSchema },
     },
   }, async (request) => {
-    const { tenantId } = request.user
+    const { tenantId, role, merchantId } = request.user
     const { id } = request.params
 
     const tx = await transactionService.getTransactionWithComments(tenantId, id)
+    // Merchant yalnızca kendi işleminin detayını görebilir
+    if (role === 'merchant' && tx.merchantId !== merchantId) {
+      throw new AppError('NOT_FOUND', 'İşlem bulunamadı.', 404)
+    }
     const pa = tx.paymentAccount
     return {
       data: {
@@ -380,8 +384,11 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
       response: { 200: TransactionListSchema },
     },
   }, async (request) => {
-    const { tenantId } = request.user
-    const result = await transactionService.listTransactions(tenantId, request.query)
+    const { tenantId, role, merchantId } = request.user
+    // Merchant rolü yalnızca kendi işlemlerini görür — query ile değiştiremez
+    if (role === 'merchant' && !merchantId) throw new AppError('FORBIDDEN', 'Merchant hesabı bir siteye bağlı değil.', 403)
+    const query = role === 'merchant' ? { ...request.query, merchantId } : request.query
+    const result = await transactionService.listTransactions(tenantId, query)
     return {
       data: result.data.map(serializeListItem),
       meta: result.meta,

@@ -117,12 +117,13 @@ export const authService = {
   },
 
   // JWT payload builder
-  buildJwtPayload(user: { id: string; username: string; role: string; tenantId: string }, sessionId: string): JwtPayload {
+  buildJwtPayload(user: { id: string; username: string; role: string; tenantId: string; merchantId?: string | null }, sessionId: string): JwtPayload {
     return {
       userId: user.id,
       username: user.username,
       role: user.role as JwtPayload['role'],
       tenantId: user.tenantId,
+      ...(user.merchantId ? { merchantId: user.merchantId } : {}),
       sessionId,
     }
   },
