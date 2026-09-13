@@ -35,11 +35,11 @@ export const ROLE_NAV_PERMISSIONS: Record<UserRole, string[]> = {
   ],
   tenant_admin: [
     '/transactions', '/transactions/new', '/chat', '/merchants', '/users',
-    '/payment-accounts', '/payment-accounts/min-max', '/report_finance', '/customers', '/settings', '/user-activity',
+    '/payment-accounts', '/payment-accounts/min-max', '/report_finance', '/settings', '/user-activity',
   ],
-  finans_admin:    ['/transactions', '/transactions/new', '/chat', '/payment-accounts', '/payment-accounts/min-max', '/customers', '/user-activity'],
+  finans_admin:    ['/transactions', '/transactions/new', '/chat', '/payment-accounts', '/payment-accounts/min-max', '/user-activity'],
   finans_operator: ['/transactions', '/transactions/new', '/chat', '/user-activity'],
-  merchant:        ['/transactions', '/report_finance', '/entegrasyon', '/customers'],
+  merchant:        ['/transactions', '/report_finance', '/entegrasyon'],
 }
 
 export function getNavItemsForRole(role: UserRole | undefined): NavItem[] {

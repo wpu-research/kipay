@@ -6,22 +6,13 @@ export const customerService = {
     role: string; callerTenantId?: string; callerMerchantId?: string
     search?: string; merchantId?: string; tenantId?: string; page: number; limit: number
   }) {
-    const conds = []
-
-    // Kapsam: merchant sadece kendi; tenant_admin/finans kendi tenant'ı; super_admin serbest
-    if (params.role === 'merchant') {
-      if (!params.callerMerchantId) throw new AppError('FORBIDDEN', 'Merchant hesabı bir siteye bağlı değil.', 403)
-      conds.push(eq(customers.merchantId, params.callerMerchantId))
-    } else if (['tenant_admin', 'finans_admin', 'finans_operator'].includes(params.role)) {
-      if (!params.callerTenantId) throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
-      conds.push(eq(customers.tenantId, params.callerTenantId))
-      if (params.merchantId) conds.push(eq(customers.merchantId, params.merchantId))
-    } else if (params.role === 'super_admin') {
-      if (params.tenantId)   conds.push(eq(customers.tenantId, params.tenantId))
-      if (params.merchantId) conds.push(eq(customers.merchantId, params.merchantId))
-    } else {
-      throw new AppError('FORBIDDEN', 'Yetkiniz yok.', 403)
+    // Merkezi müşteri defteri yalnızca super_admin'e açık.
+    if (params.role !== 'super_admin') {
+      throw new AppError('FORBIDDEN', 'Bu listeye yalnızca super_admin erişebilir.', 403)
     }
+    const conds = []
+    if (params.tenantId)   conds.push(eq(customers.tenantId, params.tenantId))
+    if (params.merchantId) conds.push(eq(customers.merchantId, params.merchantId))
 
     if (params.search) {
       const s = `%${params.search}%`
