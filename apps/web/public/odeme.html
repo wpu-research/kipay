@@ -1027,6 +1027,12 @@ function startHavaleCountdown(expiresAt, elId){
       clearInterval(_havaleCountdown);
       if(el) el.textContent = 'Süre doldu';
       if(el) el.style.color = '#dc2626';
+      clearInterval(_havaleAccountPollTimer);
+      // Süre doldu → yatırım onayı verilmedi, backend otomatik reddediyor.
+      // Kullanıcı henüz "Yatırdım" dememişse (havale sayfasındaysak) red ekranını göster.
+      if(document.getElementById('page-havale') && document.getElementById('page-havale').classList.contains('active')){
+        renderResult('REJECTED');
+      }
     }
   }
   tick();
