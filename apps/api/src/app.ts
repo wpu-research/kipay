@@ -28,6 +28,7 @@ import { warningRoutes } from './features/warnings/warning.routes.js';
 import { auditRoutes } from './features/audit/audit.routes.js';
 import { exchangeRateRoutes } from './features/exchange-rates/exchange-rate.routes.js';
 import { reportRoutes }       from './features/reports/report.routes.js';
+import { commissionRoutes }   from './features/commission/commission.routes.js';
 import { settingsRoutes }     from './features/settings/settings.routes.js';
 import { profileRoutes }     from './features/profile/profile.routes.js';
 import { chatRoutes } from './features/chat/chat.routes.js';
@@ -156,6 +157,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(auditRoutes,         { prefix: '/api/v1/audit-logs' });
   await app.register(exchangeRateRoutes,  { prefix: '/api/v1/exchange-rates' });
   await app.register(reportRoutes,        { prefix: '/api/v1/reports' });
+  await app.register(commissionRoutes,    { prefix: '/api/v1/commission' });
   await app.register(settingsRoutes,      { prefix: '/api/v1/settings' });
   await app.register(profileRoutes,      { prefix: '/api/v1/profile' });
   await app.register(chatRoutes,         { prefix: '/api/v1/chat' });

@@ -2,6 +2,7 @@ import { db, transactions, paymentAccounts, merchants, transactionComments, bloc
 import type { TransactionComment } from '@panel/db'
 import { AppError } from '../../errors/app-error.js'
 import { validateRouting, selectPaymentAccountInTx } from './routing-engine.js'
+import { calculateCommission } from './commission.js'
 import * as sseManager from '../../sse/sse-manager.js'
 import { emitToUser } from '../../sse/sse-manager.js'
 import { notificationService } from '../notifications/notification.service.js'
@@ -113,6 +114,7 @@ export const transactionService = {
         status:           isCrypto ? 'STARTED' : 'PENDING',
         type:             'deposit',
         startedExpiresAt: startedExpiresAt ?? null,
+        depositMethod:    isCrypto ? 'kripto' : (input.depositMethod ?? 'havale'),
         exchangeRate:     tryRate?.exchangeRate ?? null,
         amountTry:        tryRate ? tryRate.amountTry(input.amount) : input.amount,
         // v1.1 userInfo
@@ -461,9 +463,11 @@ export const transactionService = {
       whereConditions.push(gt(transactions.claimExpiresAt, sql`NOW()`))
     }
 
+    const commission = await calculateCommission(tx)
+
     const [approved] = await db
       .update(transactions)
-      .set({ status: 'APPROVED', callbackStatus: 'pending', resolvedBy: userId, resolvedAt: new Date(), updatedAt: new Date() })
+      .set({ status: 'APPROVED', callbackStatus: 'pending', resolvedBy: userId, resolvedAt: new Date(), updatedAt: new Date(), ...commission })
       .where(and(...whereConditions))
       .returning()
 
@@ -494,6 +498,7 @@ export const transactionService = {
     }
 
     const previousStatus = tx.status
+    const commission = await calculateCommission(tx)
     const [revised] = await db
       .update(transactions)
       .set({
@@ -501,6 +506,7 @@ export const transactionService = {
         callbackStatus: 'pending',
         revised: true,
         previousStatus,
+        ...commission,
         resolvedBy: userId,
         resolvedAt: new Date(),
         updatedAt: new Date(),
@@ -712,12 +718,15 @@ export const transactionService = {
         ? (parseFloat(adjustedAmount) * parseFloat(tx.exchangeRate)).toFixed(2)
         : tx.amountTry  // kur yoksa mevcut değeri koru
 
+    const commission = await calculateCommission({ ...tx, amount: adjustedAmount, amountTry: amountTry ?? null })
+
     const [approved] = await db
       .update(transactions)
       .set({
         status:         'APPROVED',
         amount:         adjustedAmount,
         amountTry,
+        ...commission,
         callbackStatus: 'pending',
         resolvedBy:     userId,
         resolvedAt:     new Date(),

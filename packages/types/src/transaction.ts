@@ -36,6 +36,8 @@ export const InitiateTransactionSchema = z.object({
   externalUserId: z.string().min(1),
   amount:         z.string().regex(/^\d+(\.\d{1,2})?$/, 'Geçerli tutar formatı: "500" veya "500.00"'),
   currency:       z.string().min(1).max(10),
+  // Yatırım yöntemi — komisyon/rapor kırılımı için ('havale' | 'hizli_havale' | 'kripto').
+  depositMethod:  z.string().max(30).optional(),
   userInfo:       UserInfoSchema,
 }).superRefine((data, ctx) => {
   // memberId, externalUserId ile eşleşmeli

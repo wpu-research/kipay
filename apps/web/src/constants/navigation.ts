@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Bankalar',           href: '/banks',            icon: 'Landmark' },
   { title: 'Kripto Paralar',     href: '/cryptos',          icon: 'Coins' },
   { title: 'Raporlar',           href: '/report_general',   icon: 'BarChart3' },
+  { title: 'Gelir/Gider',        href: '/report_finance',   icon: 'Wallet' },
   { title: 'Audit Loglar',       href: '/audit-logs',       icon: 'ClipboardList' },
   { title: 'Kullanıcı Hareketleri', href: '/user-activity', icon: 'Activity' },
   { title: 'Ayarlar',            href: '/settings',         icon: 'Settings' },
@@ -28,11 +29,11 @@ export const NAV_ITEMS: NavItem[] = [
 export const ROLE_NAV_PERMISSIONS: Record<UserRole, string[]> = {
   super_admin: [
     '/tenants', '/merchants', '/users',
-    '/banks', '/cryptos', '/report_general', '/audit-logs', '/user-activity', '/settings', '/system',
+    '/banks', '/cryptos', '/report_general', '/report_finance', '/audit-logs', '/user-activity', '/settings', '/system',
   ],
   tenant_admin: [
     '/transactions', '/transactions/new', '/chat', '/merchants', '/users',
-    '/payment-accounts', '/payment-accounts/min-max', '/settings', '/user-activity',
+    '/payment-accounts', '/payment-accounts/min-max', '/report_finance', '/settings', '/user-activity',
   ],
   finans_admin:    ['/transactions', '/transactions/new', '/chat', '/payment-accounts', '/payment-accounts/min-max', '/user-activity'],
   finans_operator: ['/transactions', '/transactions/new', '/chat', '/user-activity'],

@@ -42,6 +42,13 @@ export const transactions = pgTable('transactions', {
   resolvedAt:       timestamp('resolved_at', { withTimezone: true }),
   callbackStatus:      text('callback_status'),
   exchangeRate:        decimal('exchange_rate', { precision: 18, scale: 8 }),
+  // Yatırımın hangi yöntemle yapıldığı ('havale' | 'hizli_havale' | 'kripto').
+  // Çekimlerde yöntem paymentMethod kolonunda tutulur.
+  depositMethod:       text('deposit_method'),
+  // Komisyon snapshot'ı — işlem onaylanırken o anki oranla hesaplanıp yazılır.
+  // Oran sonradan değişse de geçmiş raporlar bozulmaz.
+  commissionRate:      decimal('commission_rate',   { precision: 5,  scale: 2 }),
+  commissionAmount:    decimal('commission_amount', { precision: 18, scale: 2 }),
   amountTry:           decimal('amount_try', { precision: 18, scale: 2 }),
   note:                text('note'),
   playerConfirmed:     boolean('player_confirmed').notNull().default(false),

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const initCurrency = method === 'kripto' ? 'crypto' : 'TRY'
     const data = await apiDepositInitiate(
-      user_id ?? 'anonymous', amount, initCurrency, creds.keyId, creds.secret, merchant_id,
+      user_id ?? 'anonymous', amount, initCurrency, creds.keyId, creds.secret, merchant_id, method,
     )
 
     const txId = data.txId ?? ''

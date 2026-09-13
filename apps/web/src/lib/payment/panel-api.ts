@@ -191,10 +191,11 @@ export async function apiDepositInitiate(
   keyId?: string,
   secret?: string,
   merchantId?: string,
+  depositMethod?: string,
 ): Promise<DepositInitiateResult> {
   if (useMock()) return mockDepositInitiate(externalUserId, amount, currency);
 
-  const body = { externalUserId, amount: amount.toFixed(2), currency };
+  const body = { externalUserId, amount: amount.toFixed(2), currency, depositMethod };
   const data = await merchantRequest('POST', '/merchant/v1/deposit/initiate', body, keyId, secret, merchantId);
 
   const txId   = String(data['txId'] ?? '');

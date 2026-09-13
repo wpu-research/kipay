@@ -12,6 +12,7 @@ import {
   Coins,
   BarChart2,
   BarChart3,
+  Wallet,
   ClipboardList,
   Settings,
   Activity,
@@ -48,6 +49,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Settings,
   Activity,
   MessageSquare,
+  Wallet,
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
