@@ -1,4 +1,4 @@
-import { db, transactions, paymentAccounts, merchants, transactionComments, blockedPlayers, exchangeRates, banks, eq, and, or, gt, gte, lte, sql, inArray, ilike, desc } from '@panel/db'
+import { db, transactions, paymentAccounts, merchants, customers, transactionComments, blockedPlayers, exchangeRates, banks, eq, and, or, gt, gte, lte, sql, inArray, ilike, desc } from '@panel/db'
 import type { TransactionComment } from '@panel/db'
 import { AppError } from '../../errors/app-error.js'
 import { validateRouting, selectPaymentAccountInTx } from './routing-engine.js'
@@ -127,6 +127,32 @@ export const transactionService = {
       }).returning()
 
       if (!inserted) throw new AppError('INTERNAL_SERVER_ERROR', 'İşlem oluşturulamadı.', 500)
+
+      // Merkezi müşteri defteri — (merchant, externalUserId) bazında upsert.
+      // Ödeme yapan herkesin isim/soyisim/telefon (+TC) bilgisi burada toplanır.
+      await tx.insert(customers).values({
+        tenantId,
+        merchantId,
+        externalUserId: input.externalUserId,
+        identityNumber: input.userInfo?.identityNumber ?? null,
+        firstName:      input.userInfo?.firstName ?? null,
+        lastName:       input.userInfo?.lastName ?? null,
+        phone:          input.userInfo?.phone ?? null,
+        depositCount:   1,
+      }).onConflictDoUpdate({
+        target: [customers.merchantId, customers.externalUserId],
+        set: {
+          // KYC gelmişse güncelle; gelmemişse mevcut değeri koru
+          identityNumber: input.userInfo?.identityNumber ?? sql`${customers.identityNumber}`,
+          firstName:      input.userInfo?.firstName ?? sql`${customers.firstName}`,
+          lastName:       input.userInfo?.lastName ?? sql`${customers.lastName}`,
+          phone:          input.userInfo?.phone ?? sql`${customers.phone}`,
+          depositCount:   sql`${customers.depositCount} + 1`,
+          lastSeenAt:     new Date(),
+          updatedAt:      new Date(),
+        },
+      })
+
       return { row: inserted, depositAddress, accountName }
     })
 

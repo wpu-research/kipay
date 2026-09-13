@@ -15,6 +15,7 @@ vi.mock('@panel/db', () => ({
   },
   transactions:        {},
   merchants:           {},
+  customers:           {},
   financeGroupMembers: {},
   transactionComments: {},
   blockedPlayers:      {},
