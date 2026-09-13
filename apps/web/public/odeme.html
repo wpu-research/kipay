@@ -1008,7 +1008,7 @@ function _pollForHavaleAccount(txId, box){
       var iban = tx.ibanWallet || '';
       if(iban){
         clearInterval(_havaleAccountPollTimer);
-        _renderHavaleAccount(box, iban, tx.accountName || '', tx.bank || '', tx.expiresAt || '');
+        _renderHavaleAccount(box, iban, tx.accountName || '', tx.bank || '', tx.expiresAt || S._havaleExpiresAt || '');
       }
     }catch(e){}
   }, 3000);
@@ -1077,6 +1077,7 @@ async function startHavaleManuel(){
     }
 
     S._havaleTransactionId = d.transaction_id;
+    S._havaleExpiresAt = d.expires_at || d.expiresAt || null;  // sayaç deadline'ı
     const iban = d.account?.iban || d.ibanWallet || '';
 
     if(!iban){
@@ -1090,7 +1091,7 @@ async function startHavaleManuel(){
       return;
     }
 
-    _renderHavaleAccount(box, iban, d.account?.name || d.accountName || '', d.account?.bank || d.bank || '', d.expires_at);
+    _renderHavaleAccount(box, iban, d.account?.name || d.accountName || '', d.account?.bank || d.bank || '', d.expires_at || S._havaleExpiresAt);
 
   }catch(e){
     console.error('startHavaleManuel:', e);
