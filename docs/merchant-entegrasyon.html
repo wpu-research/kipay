@@ -54,7 +54,8 @@ Content-Type: application/json
 }
 → { "token": "&lt;opak-token&gt;" }   // 15 dk geçerli</pre>
     <p class="sub" style="margin:12px 0 0">2) Widget'ı bu token'la iframe/pencere olarak açarsınız:</p>
-    <pre>https://www.kipayz.com/odeme/&lt;MERCHANT_ID&gt;?page=deposit&amp;s=&lt;token&gt;</pre>
+    <pre>https://www.kipayz.com/odeme/&lt;MERCHANT_ID&gt;?page=deposit&amp;method=havale&amp;amount=1000&amp;s=&lt;token&gt;</pre>
+    <p class="sub" style="margin:6px 0 0;font-size:12px">Tutarı <code>amount</code> ile geçersiniz (hassas değil). Yöntem seçimini kullanıcıya bırakmak isterseniz <code>method/amount</code> vermeyin.</p>
     <p class="sub" style="margin:12px 0 0">3) Sonucu <code>postMessage</code> ile dinlersiniz: <code>pp-confirmed</code> (kullanıcı yatırdım dedi), <code>pp-close</code> (kapatıldı). Kesin onay için Callback URL'inize gelen imzalı bildirimi esas alın.</p>
     <p class="note">⚠️ Üretimde <b>token'ı sunucunuzda oluşturun</b> (bu demo tarayıcıdan çağırıyor). Ayrıca site domain'iniz merchant "origin" ayarında tanımlı olmalı.</p>
   </div>
@@ -95,8 +96,12 @@ Content-Type: application/json
       const data = await res.json();
       if(!res.ok || !data.token){ log('Oturum oluşturulamadı: ' + (data.error || res.status)); return; }
 
-      // 2) Widget'ı token ile aç (URL'de PII yok)
-      const url = GATEWAY + '/odeme/' + MERCHANT_ID + '?page=deposit&s=' + encodeURIComponent(data.token);
+      // 2) Widget'ı token + tutar ile aç (URL'de PII yok; tutar hassas değil).
+      //    method=havale & amount=X verilince widget doğrudan havale ekranına geçer.
+      //    Kullanıcı yöntemi kendi seçsin isterseniz: '?page=deposit&s=' + token (amount/method vermeyin).
+      const url = GATEWAY + '/odeme/' + MERCHANT_ID
+        + '?page=deposit&method=havale&amount=' + encodeURIComponent(amount)
+        + '&s=' + encodeURIComponent(data.token);
       document.getElementById('payFrame').src = url;
       document.getElementById('modal').classList.add('open');
       log('');
