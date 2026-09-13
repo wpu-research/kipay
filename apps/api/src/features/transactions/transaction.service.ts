@@ -72,7 +72,7 @@ export const transactionService = {
     const { environment } = await validateRouting({ tenantId, merchantId, currency: input.currency })
     // Onay süresi — kullanıcı bu süre içinde "Yatırdım" demezse job otomatik REJECTED yapar.
     // Havale ve kripto için de geçerli.
-    const STARTED_EXPIRES_MINUTES = 30
+    const STARTED_EXPIRES_MINUTES = 5
     const startedExpiresAt = new Date(Date.now() + STARTED_EXPIRES_MINUTES * 60 * 1000)
 
     const { row, depositAddress, accountName } = await db.transaction(async (tx) => {
