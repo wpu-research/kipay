@@ -566,9 +566,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
    CONFIG
 ════════════════════════ */
 function apiBase(){
-  // URL param'a bak (?engine_url=...), yoksa aynı origin'i kullan
-  const urlParam = new URLSearchParams(window.location.search).get('engine_url');
-  if(urlParam) return urlParam.replace(/\/+$/,'');
+  // Güvenlik: API tabanı her zaman same-origin. (engine_url override kaldırıldı —
+  // aksi halde kötü niyetli bir link KYC verisini başka sunucuya yollayabilirdi.)
   return window.location.origin;
 }
 const OPERATOR_IBAN = "TR33 0006 1005 1978 6457 8413 26";

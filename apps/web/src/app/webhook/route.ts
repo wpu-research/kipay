@@ -7,6 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { MERCHANT_CREDS, paymentEnv } from '@/lib/payment/env'
 import { sseNotify } from '@/lib/payment/events'
 import { getTxCreds, updateTransaction } from '@/lib/payment/panel-api'
+import { enforceRateLimit } from '@/lib/payment/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,6 +27,8 @@ interface WebhookPayload {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, 'webhook', 120)
+  if (limited) return limited
   // HMAC doğrulaması ham gövde üzerinden yapılır — önce text olarak oku.
   const rawBody = await request.text()
 
@@ -39,7 +42,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'txId ve status zorunlu' }, { status: 400 })
   }
 
-  const requireSig = paymentEnv.WEBHOOK_REQUIRE_SIG === 'true'
+  // Fail-closed: yalnızca açıkça 'false' ise imzasız kabul edilir; aksi halde imza zorunlu.
+  const requireSig = paymentEnv.WEBHOOK_REQUIRE_SIG !== 'false'
   const sigToCheck = request.headers.get('x-signature') ?? payload.signature ?? undefined
 
   if (!sigToCheck) {

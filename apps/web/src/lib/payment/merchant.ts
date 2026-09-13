@@ -13,7 +13,12 @@ export function checkMerchant(merchantId: string, origin: string): MerchantCheck
     console.warn(`[MERCHANT] Bilinmeyen merchant_id: ${merchantId}`)
     return { ok: false, status: 403, error: 'Bilinmeyen merchant.' }
   }
-  if (creds.originPattern && !matchesOrigin(creds.originPattern, origin)) {
+  // Fail-closed: her merchant için origin tanımlı olmalı ve eşleşmeli.
+  if (!creds.originPattern) {
+    console.warn(`[MERCHANT] ${merchantId} için origin tanımlı değil — reddedildi. MERCHANT_n env'ine "origin" ekleyin.`)
+    return { ok: false, status: 403, error: 'Merchant origin yapılandırılmamış.' }
+  }
+  if (!matchesOrigin(creds.originPattern, origin)) {
     console.warn(`[MERCHANT] Origin reddedildi: ${origin} (beklenen: ${creds.originPattern})`)
     return { ok: false, status: 403, error: 'İzin verilmeyen origin.' }
   }

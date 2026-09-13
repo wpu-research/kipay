@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { alertNoAccount, checkMerchant } from '@/lib/payment/merchant'
 import { apiDepositInitiate, cleanupTxCreds, storeTxCreds } from '@/lib/payment/panel-api'
+import { enforceRateLimit } from '@/lib/payment/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,8 @@ interface Body {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, 'account', 30)
+  if (limited) return limited
   const body = await request.json() as Body
   const { merchant_id, user_id, method, amount } = body
 

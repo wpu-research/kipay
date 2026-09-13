@@ -4,6 +4,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { checkMerchant } from '@/lib/payment/merchant'
 import { apiWithdrawalRequest, storeTxCreds } from '@/lib/payment/panel-api'
+import { enforceRateLimit } from '@/lib/payment/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,8 @@ interface Body {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, 'withdrawal', 20)
+  if (limited) return limited
   const { merchant_id, user_id, method, amount, currency, iban, account_name } =
     await request.json() as Body
 

@@ -3,11 +3,14 @@
  */
 import { NextResponse, type NextRequest } from 'next/server'
 import { apiDepositConfirm } from '@/lib/payment/panel-api'
+import { enforceRateLimit } from '@/lib/payment/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, 'confirm', 30)
+  if (limited) return limited
   const { transaction_id, currency } = await request.json() as { transaction_id: string; currency?: string }
   if (!transaction_id) {
     return NextResponse.json({ error: 'transaction_id zorunlu.' }, { status: 400 })
