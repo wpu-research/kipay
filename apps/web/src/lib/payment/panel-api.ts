@@ -306,6 +306,29 @@ export async function apiListTransactions(
   return data as unknown as ListResult;
 }
 
+/**
+ * Gerçek panel'den işlem durumunu sorar (bellek kaybına/çoklu-instance'a dayanıklı).
+ * /api/payment/status bellekte bulamazsa buna düşer. Global env credential'ları kullanır.
+ */
+export async function apiGetTransactionStatus(txId: string): Promise<Transaction | null> {
+  if (useMock()) return null;
+  try {
+    const res = await merchantRequest('GET', `/merchant/v1/transactions/${txId}`);
+    const d = (res as { data?: Record<string, unknown> }).data ?? (res as Record<string, unknown>);
+    if (!d || !d['txId']) return null;
+    return {
+      txId:           String(d['txId']),
+      status:         String(d['status'] ?? ''),
+      externalUserId: String(d['externalUserId'] ?? ''),
+      amount:         String(d['amount'] ?? ''),
+      currency:       String(d['currency'] ?? ''),
+      type:           String(d['type'] ?? 'deposit'),
+    } as Transaction;
+  } catch {
+    return null;
+  }
+}
+
 export function getTransaction(txId: string): Transaction | undefined {
   return mockTxMap.get(txId);
 }
