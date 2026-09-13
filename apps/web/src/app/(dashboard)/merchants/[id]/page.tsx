@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,7 +34,7 @@ import {
   useRemoveIp,
 } from '@/features/merchants/use-merchant-api-keys'
 import { useMe } from '@/features/auth/use-auth'
-import { useMerchant, useRegenerateCallbackSecret, useUpdateMerchantStatus } from '@/features/merchants/use-merchants'
+import { useMerchant, useRegenerateCallbackSecret, useUpdateMerchantStatus, useUpdateMerchant } from '@/features/merchants/use-merchants'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 
@@ -260,6 +261,46 @@ function IpWhitelistSection({
   )
 }
 
+function WebhookSection({ merchantId, canManage }: { merchantId: string; canManage: boolean }) {
+  const { data } = useMerchant(merchantId)
+  const update = useUpdateMerchant(merchantId)
+  const [url, setUrl] = useState('')
+  const [dirty, setDirty] = useState(false)
+
+  useEffect(() => {
+    if (data?.data?.webhookUrl && !dirty) setUrl(data.data.webhookUrl)
+  }, [data?.data?.webhookUrl, dirty])
+
+  async function save() {
+    try {
+      await update.mutateAsync({ webhookUrl: url.trim() })
+      toast.success('Callback URL güncellendi.')
+      setDirty(false)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Güncellenemedi.')
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Callback URL</CardTitle>
+        <CardDescription>İşlem durum bildirimlerinin gönderileceği adres. Ödeme sayfası entegrasyonu için: https://www.kipayz.com/webhook</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {canManage ? (
+          <div className="flex gap-2">
+            <Input type="url" value={url} onChange={(e) => { setUrl(e.target.value); setDirty(true) }} placeholder="https://www.kipayz.com/webhook" className="flex-1" />
+            <Button onClick={save} disabled={update.isPending || !url.trim()}>{update.isPending ? 'Kaydediliyor...' : 'Kaydet'}</Button>
+          </div>
+        ) : (
+          <p className="font-mono text-sm text-muted-foreground">{url || '—'}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function MerchantDetailPage() {
   const params     = useParams<{ id: string }>()
   const merchantId = params.id
@@ -301,6 +342,7 @@ export default function MerchantDetailPage() {
         )}
       </div>
 
+      <WebhookSection merchantId={merchantId} canManage={canManage} />
       <CredentialsSection merchantId={merchantId} canManage={canManage} />
       <IpWhitelistSection merchantId={merchantId} canManage={canManage} />
     </div>

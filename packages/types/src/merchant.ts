@@ -12,6 +12,10 @@ export const CreateMerchantSchema = z.object({
   panelPassword: z.string().min(8).max(128),
 })
 
+export const UpdateMerchantSchema = z.object({
+  webhookUrl: z.string().url('Geçerli bir URL giriniz'),
+})
+
 export const UpdateMerchantStatusSchema = z.object({
   status: z.enum(['active', 'inactive']),
 })
@@ -35,5 +39,6 @@ export const MerchantResponseSchema = z.object({ data: MerchantSchema })
 
 // Tipler
 export type CreateMerchantInput  = z.infer<typeof CreateMerchantSchema>
+export type UpdateMerchantInput  = z.infer<typeof UpdateMerchantSchema>
 export type Merchant             = z.infer<typeof MerchantSchema>
 export type MerchantListResponse = z.infer<typeof MerchantListResponseSchema>

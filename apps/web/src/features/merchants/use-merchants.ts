@@ -36,6 +36,18 @@ export function useRegenerateCallbackSecret(id: string) {
   })
 }
 
+export function useUpdateMerchant(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { webhookUrl: string }) =>
+      apiClient.patch<{ data: Merchant }>(`/api/v1/merchants/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['merchant', id] })
+      qc.invalidateQueries({ queryKey: ['merchants'] })
+    },
+  })
+}
+
 export function useCreateMerchant() {
   const qc = useQueryClient()
   return useMutation({

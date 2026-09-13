@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import {
   CreateMerchantSchema,
+  UpdateMerchantSchema,
   UpdateMerchantStatusSchema,
   MerchantResponseSchema,
   MerchantListResponseSchema,
@@ -177,6 +178,24 @@ export const merchantRoutes: FastifyPluginAsyncZod = async (app) => {
   })
 
   // PATCH /merchants/:id/status — Durum değiştir
+  // PATCH /:id — merchant düzenle (webhook URL)
+  app.patch('/:id', {
+    preHandler: [authenticate, requireTenantAdminOrSuperAdmin],
+    schema: {
+      tags: ['Merchants'], summary: 'Merchant düzenle',
+      params:   z.object({ id: z.string().uuid() }),
+      body:     UpdateMerchantSchema,
+      response: { 200: MerchantResponseSchema },
+    },
+  }, async (request, reply) => {
+    const tenantId = request.user.role === 'super_admin'
+      ? (await merchantService.getMerchantByIdUnscoped(request.params.id)).tenantId
+      : request.user.tenantId
+    const merchant = await merchantService.updateMerchant(tenantId, request.params.id, request.body)
+    request.auditEntry = { action: 'merchant.updated', resourceType: 'merchant', resourceId: merchant.id, tenantId, changes: { webhookUrl: request.body.webhookUrl } }
+    return reply.send({ data: serializeMerchant(merchant) })
+  })
+
   app.patch('/:id/status', {
     preHandler: [authenticate, requireTenantAdminOrSuperAdmin],
     config: { rateLimit: { max: 30, timeWindow: '1 minute' } },

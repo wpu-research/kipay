@@ -161,6 +161,15 @@ export const merchantService = {
     return rows[0]!
   },
 
+  async updateMerchant(tenantId: string, merchantId: string, data: { webhookUrl: string }) {
+    const rows = await db.update(merchants)
+      .set({ webhookUrl: data.webhookUrl, updatedAt: new Date() })
+      .where(and(eq(merchants.tenantId, tenantId), eq(merchants.id, merchantId)))
+      .returning()
+    if (rows.length === 0) throw new AppError('NOT_FOUND', 'Merchant bulunamadı.', 404)
+    return rows[0]!
+  },
+
   async regenerateCallbackSecret(tenantId: string, merchantId: string) {
     const callbackSecret = randomBytes(32).toString('hex')
     const rows = await db.update(merchants)
