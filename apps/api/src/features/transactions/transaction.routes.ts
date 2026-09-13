@@ -106,6 +106,13 @@ const ListQuerySchema = z.object({
 })
 const EXPORT_MAX_ROWS = 5000
 
+/** Ortadaki karakterleri maskeler; baştan keepStart, sondan keepEnd görünür. */
+function maskMiddle(value: string | null, keepStart: number, keepEnd: number): string | null {
+  if (!value) return value
+  if (value.length <= keepStart + keepEnd) return '*'.repeat(value.length)
+  return value.slice(0, keepStart) + '*'.repeat(value.length - keepStart - keepEnd) + value.slice(value.length - keepEnd)
+}
+
 export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   // POST /:id/claim — finans_operator, finans_admin, tenant_admin (super_admin dahil değil — AC #5)
@@ -198,12 +205,13 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
         withdrawalAddress:     (tx as any).withdrawalAddress     ?? null,
         withdrawalBankName:    (tx as any).withdrawalBankName    ?? null,
         userInfo: {
-          identityNumber: tx.userIdentityNumber ?? null,
+          // TC ve telefon yalnızca super_admin'e açık; diğer rollerde maskeli.
+          identityNumber: role === 'super_admin' ? (tx.userIdentityNumber ?? null) : maskMiddle(tx.userIdentityNumber ?? null, 3, 2),
           memberId:       tx.userMemberId       ?? null,
           firstName:      tx.userFirstName      ?? null,
           middleName:     tx.userMiddleName     || null,
           lastName:       tx.userLastName       ?? null,
-          phone:          tx.userPhone          ?? null,
+          phone:          role === 'super_admin' ? (tx.userPhone ?? null) : maskMiddle(tx.userPhone ?? null, 3, 2),
         },
         comments:              tx.comments.map(serializeComment),
         paymentAccount: pa
