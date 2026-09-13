@@ -78,15 +78,24 @@ function DateRangePicker({ value, onChange }: {
   )
 }
 
-function StatCard({ label, value, sub, subColor }: {
+function StatCard({ label, value, sub, subColor, onClick, active }: {
   label: string
   value: string | number
   sub?: string
   subColor?: 'up' | 'down' | 'info'
+  onClick?: () => void
+  active?: boolean
 }) {
   const colors = { up: 'text-green-500', down: 'text-red-400', info: 'text-blue-400' }
   return (
-    <div className="rounded-lg border bg-card p-4 relative overflow-hidden group">
+    <div
+      onClick={onClick}
+      className={cn(
+        'rounded-lg border bg-card p-4 relative overflow-hidden group',
+        onClick && 'cursor-pointer hover:border-primary/60 transition-colors',
+        active && 'border-primary ring-1 ring-primary/40',
+      )}
+    >
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary to-purple-500 opacity-0 group-hover:opacity-60 transition-opacity" />
       <p className="text-[11px] text-muted-foreground font-mono mb-1.5 tracking-wide">{label}</p>
       <p className="text-2xl font-bold font-display">{value}</p>
@@ -204,23 +213,31 @@ function TransactionsPageInner() {
           value={(pendingData?.meta.total ?? 0).toLocaleString('tr-TR')}
           sub="PENDING durumunda"
           subColor="down"
+          active={status === 'PENDING'}
+          onClick={() => { setStatus('PENDING'); setPage(1) }}
         />
         <StatCard
           label="İşlemde"
           value={(processingData?.meta.total ?? 0).toLocaleString('tr-TR')}
           sub="aktif operatör kontrol"
           subColor="info"
+          active={status === 'PROCESSING'}
+          onClick={() => { setStatus('PROCESSING'); setPage(1) }}
         />
         <StatCard
           label="Onaylanan (bugün)"
           value={(approvedData?.meta.total ?? 0).toLocaleString('tr-TR')}
           sub="bugün onaylanan"
           subColor="up"
+          active={status === 'APPROVED'}
+          onClick={() => { setStatus('APPROVED'); setPage(1) }}
         />
         <StatCard
           label="Toplam (filtre)"
           value={(meta?.total ?? 0).toLocaleString('tr-TR')}
-          sub="mevcut filtrede"
+          sub="mevcut filtrede — tümünü göster"
+          active={!status}
+          onClick={() => { setStatus(''); setPage(1) }}
         />
       </div>
 

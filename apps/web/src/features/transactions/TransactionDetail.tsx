@@ -105,12 +105,13 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
 
   const isAdmin = userRole === 'finans_admin' || userRole === 'tenant_admin'
   const canRetryCallback = ['tenant_admin', 'super_admin'].includes(userRole) && (tx.callbackStatus === 'failed' || tx.callbackStatus === 'dead')
-  const canApproveReject = tx.status === 'PROCESSING' && (isAdmin || tx.claimedBy === currentUserId) && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole)
   const playerConfirmed  = (tx as any).playerConfirmed === true
+  const isDeposit        = tx.type === 'deposit'
+  // Onayla/Reddet: yatırımlarda kullanıcı "yatırdım" (playerConfirmed) demeden aktif olmaz.
+  const canApproveReject = tx.status === 'PROCESSING' && (isAdmin || tx.claimedBy === currentUserId) && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole) && (!isDeposit || playerConfirmed)
   const canFlag          = tx.status === 'PROCESSING' && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole)
   const canResolve       = tx.status === 'FLAGGED' && ['tenant_admin', 'super_admin'].includes(userRole)
   const canComment       = ['finans_operator', 'finans_admin', 'tenant_admin', 'merchant', 'super_admin'].includes(userRole)
-  const isDeposit        = tx.type === 'deposit'
   // Redli / zaman aşımı yatırımı onaya çevirme — admin, 1 saat penceresi (API doğrular)
   const canRevise        = isDeposit && isAdminRole && (tx.status === 'REJECTED' || tx.status === 'TIMEOUT')
   // Farklı tedarik firmasına transfer — admin, PENDING/PROCESSING yatırım
@@ -225,6 +226,13 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
           />
         )}
       </div>
+
+      {/* Kullanıcı henüz "yatırdım" demediyse onay/red beklemede */}
+      {isDeposit && tx.status === 'PROCESSING' && !playerConfirmed && (
+        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          ⏳ Kullanıcının &quot;Yatırdım&quot; onayı bekleniyor. Onayla / Reddet bu onaydan sonra aktifleşir.
+        </div>
+      )}
 
       {/* Aksiyon Butonları */}
       {(canApproveReject || canFlag) && (
