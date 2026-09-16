@@ -107,8 +107,8 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
   const canRetryCallback = ['tenant_admin', 'super_admin'].includes(userRole) && (tx.callbackStatus === 'failed' || tx.callbackStatus === 'dead')
   const playerConfirmed  = (tx as any).playerConfirmed === true
   const isDeposit        = tx.type === 'deposit'
-  // Onayla/Reddet: yatırımlarda kullanıcı "yatırdım" (playerConfirmed) demeden aktif olmaz.
-  const canApproveReject = tx.status === 'PROCESSING' && (isAdmin || tx.claimedBy === currentUserId) && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole) && (!isDeposit || playerConfirmed)
+  // Onayla/Reddet: playerConfirmed beklenmez — finans ekibi hesap hareketini görür görmez karar verebilir.
+  const canApproveReject = tx.status === 'PROCESSING' && (isAdmin || tx.claimedBy === currentUserId) && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole)
   const canFlag          = tx.status === 'PROCESSING' && ['finans_operator', 'finans_admin', 'tenant_admin'].includes(userRole)
   const canResolve       = tx.status === 'FLAGGED' && ['tenant_admin', 'super_admin'].includes(userRole)
   const canComment       = ['finans_operator', 'finans_admin', 'tenant_admin', 'merchant', 'super_admin'].includes(userRole)
@@ -227,10 +227,10 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
         )}
       </div>
 
-      {/* Kullanıcı henüz "yatırdım" demediyse onay/red beklemede */}
+      {/* Kullanıcı henüz "yatırdım" demedi — bilgi amaçlı; onay/red yine de yapılabilir */}
       {isDeposit && tx.status === 'PROCESSING' && !playerConfirmed && (
         <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-          ⏳ Kullanıcının &quot;Yatırdım&quot; onayı bekleniyor. Onayla / Reddet bu onaydan sonra aktifleşir.
+          ⏳ Kullanıcı henüz &quot;Yatırdım&quot; demedi. Hesap hareketini gördüysen yine de onaylayıp reddedebilirsin.
         </div>
       )}
 
