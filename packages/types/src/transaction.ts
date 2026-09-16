@@ -210,6 +210,9 @@ export const TransactionDetailSchema = z.object({
       lastName:       z.string().nullable(),
       phone:          z.string().nullable(),
     }),
+    // İşlemi üstlenen / sonuçlandıran panel kullanıcısının adı (UUID yerine okunur karşılık)
+    claimedByName:  z.string().nullable(),
+    resolvedByName: z.string().nullable(),
     comments: z.array(TransactionCommentSchema),
     paymentAccount: z.object({
       id:            z.string().uuid().nullable(),

@@ -643,6 +643,8 @@ export const transactionService = {
         merchant: {
           columns: { merchantName: true },
         },
+        claimedByUser:  { columns: { username: true } },
+        resolvedByUser: { columns: { username: true } },
         paymentAccount: {
           columns: { type: true, name: true, accountNumber: true },
           with: {

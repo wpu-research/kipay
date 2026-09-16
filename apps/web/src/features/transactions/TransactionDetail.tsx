@@ -431,6 +431,8 @@ export function TransactionDetail({ transactionId, currentUserId, userRole }: Pr
             <Row label="Ad Soyad" value={fullName || '—'} />
             <Row label="Talep Geliş" value={fmtDateTime(tx.createdAt)} />
             <Row label="Sonuçlanma" value={fmtDateTime(tx.resolvedAt)} />
+            {tx.claimedByName && <Row label="İşleyen" value={tx.claimedByName} />}
+            {tx.resolvedByName && <Row label="Sonuçlandıran" value={tx.resolvedByName} />}
             {tx.revised && (
               <Row label="Düzeltme" value={`Evet (önceki: ${tx.previousStatus ?? '—'})`} />
             )}

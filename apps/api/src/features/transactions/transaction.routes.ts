@@ -213,6 +213,8 @@ export const transactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
           lastName:       tx.userLastName       ?? null,
           phone:          role === 'super_admin' ? (tx.userPhone ?? null) : maskMiddle(tx.userPhone ?? null, 3, 2),
         },
+        claimedByName:         tx.claimedByUser?.username  ?? null,
+        resolvedByName:        tx.resolvedByUser?.username ?? null,
         comments:              tx.comments.map(serializeComment),
         paymentAccount: pa
           ? {
