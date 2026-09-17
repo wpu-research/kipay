@@ -63,6 +63,18 @@ export const WithdrawalResponseSchema = z.object({
 export type WithdrawalResponse = z.infer<typeof WithdrawalResponseSchema>
 
 // GET /merchant/v1/transactions/:txId & /transactions
+// ÇIKTI şeması — UserInfoSchema (giriş) TC checksum/E.164 zorunlu kıldığı için burada
+// kullanılamaz: userInfo'suz veya eski/manuel kayıtlar yanıtı doğrulamada patlatır (500).
+// Çıktıda alanlar serbest metin, yokluk boş string ile temsil edilir.
+export const MerchantUserInfoOutputSchema = z.object({
+  identityNumber: z.string(),
+  memberId:       z.string(),
+  firstName:      z.string(),
+  middleName:     z.string(),
+  lastName:       z.string(),
+  phone:          z.string(),
+})
+
 export const MerchantTransactionItemSchema = z.object({
   txId:           z.string().uuid(),
   status:         TransactionStatusEnum,
@@ -71,7 +83,7 @@ export const MerchantTransactionItemSchema = z.object({
   currency:       z.string(),
   externalUserId: z.string(),
   paymentMethod:  z.string().nullable(),
-  userInfo:       UserInfoSchema.optional(),
+  userInfo:       MerchantUserInfoOutputSchema.optional(),
   createdAt:      z.string(),
   updatedAt:      z.string(),
 })

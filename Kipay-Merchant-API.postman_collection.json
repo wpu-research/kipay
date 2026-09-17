@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8498fbef-d2b1-4a1c-bdb1-49ef8c51a3ec",
     "name": "Kipay Merchant API — api.kipayz.com",
-    "description": "Kipay merchant entegrasyon test koleksiyonu.\n\n## Kurulum\n1. Collection → Variables: `merchant_key_id` (key_…) ve `merchant_secret` (sk_…) değerlerini gir. Secret panelden API key oluşturulduğunda sadece bir kez gösterilir.\n2. `base_url` varsayılan olarak https://api.kipayz.com — sandbox için değiştirin.\n3. İmza (X-Signature) collection-level pre-request script ile otomatik hesaplanır; elle header eklemeyin.\n\n## Auth şeması\n- `X-API-Key`: keyId (secret ağda dolaşmaz)\n- `X-Timestamp`: ISO 8601, sunucu saatiyle ±5 dk\n- `X-Nonce`: her istekte benzersiz UUID (tekrar = 401 NONCE_REPLAY)\n- `X-Signature`: `sha256=` + HMAC-SHA256(secret, `timestamp\\nnonce\\nrawBody`) hex\n\n## Akış\nYatırım: initiate → (oyuncu ödeme yapar) → player-confirmed → panel onaylar → callback COMPLETED\nÇekim:  withdrawal/request → panel onaylar → callback\nSandbox'ta `simulate-callback` ile panel onayını taklit edebilirsiniz.\n\n## Kurallar\n- `userInfo.memberId` == `externalUserId` olmalı (USER_ID_MISMATCH)\n- `identityNumber` geçerli TC Kimlik (11 hane + checksum); test: 10000000146\n- `phone` E.164: +90XXXXXXXXXX\n- Çekimde IBAN: TR + 24 rakam; `withdrawalAccountName` ad-soyad ile eşleşmeli (NAME_MISMATCH)\n- IP whitelist aktifse istek atan sunucu IP'si panelde tanımlı olmalı\n",
+    "description": "Kipay merchant entegrasyon test koleksiyonu.\n\n## Kurulum\n1. Collection → Variables: `merchant_key_id` (key_…) ve `merchant_secret` (sk_…) değerlerini gir. Secret panelden API key oluşturulduğunda sadece bir kez gösterilir.\n2. `base_url` varsayılan olarak https://api.kipayz.com — sandbox için değiştirin.\n3. İmza (X-Signature) collection-level pre-request script ile otomatik hesaplanır; elle header eklemeyin.\n\n## Auth şeması\n- `X-API-Key`: keyId (secret ağda dolaşmaz)\n- `X-Timestamp`: ISO 8601, sunucu saatiyle ±5 dk\n- `X-Nonce`: her istekte benzersiz UUID (tekrar = 401 NONCE_REPLAY)\n- `X-Signature`: `sha256=` + HMAC-SHA256(secret, `timestamp\\nnonce\\nrawBody`) hex\n\n## Akış\nYatırım: initiate → (oyuncu ödeme yapar) → player-confirmed → panel onaylar → callback COMPLETED\n`player-confirmed` initiate'in hemen ardından çağrılabilir; operatörün işlemi üstlenmesi beklenmez.\nÇekim:  withdrawal/request → panel onaylar → callback\nSandbox'ta `simulate-callback` ile panel onayını taklit edebilirsiniz.\n\n## Kurallar\n- `userInfo.memberId` == `externalUserId` olmalı (USER_ID_MISMATCH)\n- `identityNumber` geçerli TC Kimlik (11 hane + checksum); test: 10000000146\n- `phone` E.164: +90XXXXXXXXXX\n- Çekimde IBAN: TR + 24 rakam; `withdrawalAccountName` ad-soyad ile eşleşmeli (NAME_MISMATCH)\n- IP whitelist aktifse istek atan sunucu IP'si panelde tanımlı olmalı\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -232,7 +232,7 @@
                 "player-confirmed"
               ]
             },
-            "description": "Oyuncu transferi yaptığını bildirdiğinde çağrılır. Panelde işlem öne çıkar.",
+            "description": "Oyuncu transferi yaptığını bildirdiğinde çağrılır — initiate'ten hemen sonra çağrılabilir, operatörün işlemi üstlenmesini beklemek gerekmez. Yanıt status: işlem henüz üstlenilmemişse PENDING, üstlenilmişse PROCESSING. Panelde işlem öne çıkar.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"txId\": \"{{transaction_id}}\"\n}",
@@ -250,7 +250,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('status PENDING|PROCESSING', () => pm.expect(['PENDING','PROCESSING']).to.include(b.status));"
                 ]
               }
             }
@@ -278,7 +280,7 @@
                 "confirm"
               ]
             },
-            "description": "Spec uyumlu alias. Yanıt status: PENDING.",
+            "description": "Spec uyumlu alias — 1.2 ile aynı davranış. Aynı txId için tekrar çağrılması güvenlidir (idempotent). Yanıt status: PENDING veya PROCESSING.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"txId\": \"{{transaction_id}}\",\n  \"currency\": \"TRY\"\n}",

@@ -186,7 +186,10 @@ export const transactionService = {
   async playerConfirmedDeposit(params: { tenantId: string; merchantId: string; txId: string }) {
     const { tenantId, merchantId, txId } = params
 
-    // Havale v2 akışı: PROCESSING deposit'te playerConfirmed=true yap + taşerona SSE
+    // Havale v2 akışı: PROCESSING veya henüz üstlenilmemiş PENDING deposit'te
+    // playerConfirmed=true yap + (üstlenilmişse) taşerona SSE.
+    // PENDING dahil: oyuncu "yatırdım"a operatör işlemi claim etmeden de basabilir —
+    // sıralamayı merchant'a dayatmak entegrasyonu 409'a düşürüyordu.
     const [updated] = await db
       .update(transactions)
       .set({ playerConfirmed: true, playerConfirmedAt: new Date(), updatedAt: new Date() })
@@ -194,7 +197,7 @@ export const transactionService = {
         eq(transactions.id, txId),
         eq(transactions.tenantId, tenantId),
         eq(transactions.merchantId, merchantId),
-        eq(transactions.status, 'PROCESSING'),
+        inArray(transactions.status, ['PROCESSING', 'PENDING']),
         eq(transactions.type, 'deposit'),
         eq(transactions.playerConfirmed, false),
       ))
@@ -232,7 +235,7 @@ export const transactionService = {
     })
     if (!tx || tx.merchantId !== merchantId) throw new AppError('NOT_FOUND', 'İşlem bulunamadı.', 404)
     if (tx.playerConfirmed) return tx
-    throw new AppError('INVALID_STATE_TRANSITION', 'Yalnızca PROCESSING veya STARTED deposit onaylanabilir.', 409)
+    throw new AppError('INVALID_STATE_TRANSITION', 'Yalnızca PENDING, PROCESSING veya STARTED deposit onaylanabilir.', 409)
   },
 
   async requestWithdrawal(params: {
