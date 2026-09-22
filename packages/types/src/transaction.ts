@@ -6,6 +6,13 @@ export const TransactionStatusEnum = z.enum([
 ])
 export type TransactionStatus = z.infer<typeof TransactionStatusEnum>
 
+// ─── Gevşek giriş tipleri ───────────────────────────────────────
+// Entegre eden sistemler (PHP vb.) sayısal alanları JSON'a sayı olarak yazıyor
+// (amount: 500.00, externalUserId: 40907081). Anlamca geçerli bu istekleri
+// VALIDATION_ERROR ile reddetmemek için sayıyı string'e çeviriyoruz.
+// İmza ham gövde üzerinden doğrulandığı için bu dönüşüm HMAC'i etkilemez.
+const numericString = z.union([z.string(), z.number()]).transform(v => String(v))
+
 // ─── userInfo (v1.1 addendum) ──────────────────────────────────
 // Üye kimlik bloğu — sabit alan sırası, imzalı body'nin parçası.
 // TC Kimlik No algoritma doğrulaması dahil.
@@ -17,15 +24,17 @@ function tcKimlikValid(tc: string): boolean {
   return d[9] === ((d10 % 10) + 10) % 10 && d[10] === d11
 }
 
+export { numericString }
+
 export const UserInfoSchema = z.object({
-  identityNumber: z.string().refine(tcKimlikValid, {
+  identityNumber: numericString.refine(tcKimlikValid, {
     message: 'INVALID_IDENTITY_NUMBER: Geçersiz TC Kimlik No (11 hane, checksum).',
   }),
-  memberId:  z.string().min(1),
+  memberId:  numericString.pipe(z.string().min(1)),
   firstName: z.string().min(1).max(60),
   middleName: z.string().max(60).optional().default(''),
   lastName:  z.string().min(1).max(60),
-  phone: z.string().regex(/^\+90[0-9]{10}$/, {
+  phone: numericString.refine(v => /^\+90[0-9]{10}$/.test(v), {
     message: 'INVALID_PHONE: E.164 formatı gerekli (+90XXXXXXXXXX).',
   }),
 })
@@ -33,8 +42,8 @@ export type UserInfoInput = z.infer<typeof UserInfoSchema>
 
 // POST /merchant/v1/deposit/initiate
 export const InitiateTransactionSchema = z.object({
-  externalUserId: z.string().min(1),
-  amount:         z.string().regex(/^\d+(\.\d{1,2})?$/, 'Geçerli tutar formatı: "500" veya "500.00"'),
+  externalUserId: numericString.pipe(z.string().min(1)),
+  amount:         numericString.refine(v => /^\d+(\.\d{1,2})?$/.test(v), 'Geçerli tutar formatı: "500" veya "500.00"'),
   currency:       z.string().min(1).max(10),
   // Yatırım yöntemi — komisyon/rapor kırılımı için ('havale' | 'hizli_havale' | 'kripto').
   depositMethod:  z.string().max(30).optional(),

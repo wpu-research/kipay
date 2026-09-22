@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { TransactionStatusEnum, UserInfoSchema } from './transaction.js'
+import { TransactionStatusEnum, UserInfoSchema, numericString } from './transaction.js'
 
 // POST /merchant/v1/deposit/confirm
 export const DepositConfirmSchema = z.object({
@@ -16,8 +16,8 @@ export type DepositConfirmResponse = z.infer<typeof DepositConfirmResponseSchema
 
 // POST /merchant/v1/withdrawal/request
 export const WithdrawalRequestSchema = z.object({
-  externalUserId:     z.string().min(1),
-  amount:             z.string().regex(/^\d+(\.\d{1,2})?$/),
+  externalUserId:     numericString.pipe(z.string().min(1)),
+  amount:             numericString.refine(v => /^\d+(\.\d{1,2})?$/.test(v), 'Geçerli tutar formatı: "500" veya "500.00"'),
   currency:           z.string().min(1).max(10),
   paymentMethod:          z.string().min(1),
   withdrawalAddress:      z.string().min(1),
