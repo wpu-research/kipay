@@ -75,7 +75,7 @@ export const transactionService = {
     const STARTED_EXPIRES_MINUTES = 5
     const startedExpiresAt = new Date(Date.now() + STARTED_EXPIRES_MINUTES * 60 * 1000)
 
-    const { row, depositAddress, accountName } = await db.transaction(async (tx) => {
+    const { row, depositAddress, accountName, bankName } = await db.transaction(async (tx) => {
       // Block kontrolü — TOCTOU önlemi
       const now = new Date()
       const block = await tx.query.blockedPlayers.findFirst({
@@ -94,17 +94,13 @@ export const transactionService = {
         })
       }
 
-      // Kripto: initiate anında routing — statik cüzdan adresi hemen döndürülmeli
-      // TRY (havale): hesap atanmıyor — claim anında routing yapılacak (v2)
-      let paymentAccountId: string | null = null
-      let depositAddress: string | null = null
-      let accountName: string | null = null
-      if (isCrypto) {
-        const routeResult = await selectPaymentAccountInTx(tx, { tenantId, environment, amount: input.amount, currency: input.currency })
-        paymentAccountId = routeResult.paymentAccountId
-        depositAddress   = routeResult.accountNumber ?? null
-        accountName      = routeResult.accountName   ?? null
-      }
+      // Initiate anında routing — kripto cüzdan adresi / havale IBAN'ı hemen döndürülür.
+      // Claim sırasında paymentAccountId dolu olduğu için tekrar routing yapılmaz.
+      const routeResult = await selectPaymentAccountInTx(tx, { tenantId, environment, amount: input.amount, currency: input.currency })
+      const paymentAccountId = routeResult.paymentAccountId
+      const depositAddress   = routeResult.accountNumber ?? null
+      const accountName      = routeResult.accountName   ?? null
+      const bankName         = routeResult.bankName      ?? null
 
       const [inserted] = await tx.insert(transactions).values({
         tenantId,
@@ -155,7 +151,7 @@ export const transactionService = {
         },
       })
 
-      return { row: inserted, depositAddress, accountName }
+      return { row: inserted, depositAddress, accountName, bankName }
     })
 
     let cryptoAmounts: Record<string, string> | undefined
@@ -179,7 +175,7 @@ export const transactionService = {
     sseManager.emitToTenant(tenantId, 'transaction.pending', { type: 'transaction.pending', ...payload })
     notificationService.createPendingNotifications({ tenantId, transactionId: row.id, payload }).catch(() => {})
 
-    return { ...row, depositAddress, accountName, cryptoAmounts, startedExpiresAt }
+    return { ...row, depositAddress, accountName, bankName, cryptoAmounts, startedExpiresAt }
   },
 
   // "Yatırdım" sinyali: oyuncu ödemeyi yaptığını bildiriyor

@@ -62,6 +62,7 @@ export const merchantApiService = {
       currency:       tx.currency,
       depositAddress: (tx as any).depositAddress ?? undefined,
       accountName:    (tx as any).accountName    ?? undefined,
+      bankName:       (tx as any).bankName       ?? undefined,
       cryptoAmounts:  (tx as any).cryptoAmounts  ?? undefined,
       expiresAt:      (tx as any).startedExpiresAt instanceof Date
         ? (tx as any).startedExpiresAt.toISOString()

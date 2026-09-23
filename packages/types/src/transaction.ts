@@ -68,6 +68,7 @@ export const InitiateTransactionResponseSchema = z.object({
   currency:       z.string(),
   depositAddress: z.string().optional(),
   accountName:    z.string().optional(),
+  bankName:       z.string().optional(),
   cryptoAmounts:  z.record(z.string()).optional(),
   expiresAt:      z.string().optional(),
 })
