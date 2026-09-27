@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto'
-import { db, transactions, callbackLogs, merchants, eq, sql, and, gte, lte, desc, count } from '@panel/db'
+import { db, transactions, callbackLogs, merchants, eq, sql, and, gte, lte, desc, count, inArray } from '@panel/db'
 import { AppError } from '../../errors/app-error.js'
 import { PgBoss } from 'pg-boss'
 
@@ -19,6 +19,17 @@ export const callbackService = {
         `Callback yalnızca 'failed' veya 'dead' durumundaki işlemler için yeniden tetiklenebilir. Mevcut durum: ${tx.callbackStatus ?? 'none'}`,
         409,
       )
+    }
+
+    // Worker 'failed' durumundaki işlemi idempotency gereği atlar — kuyruğa almadan önce
+    // 'pending'e çek. Koşullu update: eşzamanlı iki retry isteğinden yalnızca biri geçer.
+    const [reset] = await db
+      .update(transactions)
+      .set({ callbackStatus: 'pending', updatedAt: new Date() })
+      .where(and(eq(transactions.id, txId), inArray(transactions.callbackStatus, ['failed', 'dead'])))
+      .returning({ id: transactions.id })
+    if (!reset) {
+      throw new AppError('INVALID_CALLBACK_STATE', 'Callback durumu değişti, yeniden tetiklenemedi', 409)
     }
 
     const jobId = await boss.send('callback-retry', { transactionId: txId }, {
