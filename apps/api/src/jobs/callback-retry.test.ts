@@ -13,6 +13,7 @@ vi.mock('@panel/db', () => ({
   callbackLogs: {},
   eq:  vi.fn((col, val) => ({ col, val })),
   and: vi.fn((...args: unknown[]) => args),
+  gte: vi.fn((col, val) => ({ col, val })),
 }))
 
 global.fetch = vi.fn()
@@ -68,7 +69,7 @@ describe('callbackRetry', () => {
   it('transaction bulunamadıysa erken return yapar, Error yok', async () => {
     mockFindFirst.mockResolvedValue(undefined)
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-missing' } })).resolves.not.toThrow()
+    await expect(callbackRetry([{ data: { transactionId: 'tx-missing' } }])).resolves.not.toThrow()
 
     expect(mockUpdate).not.toHaveBeenCalled()
   })
@@ -91,7 +92,7 @@ describe('callbackRetry', () => {
       text:   vi.fn().mockResolvedValue('ok'),
     })
 
-    await callbackRetry({ data: { transactionId: 'tx-1' } })
+    await callbackRetry([{ data: { transactionId: 'tx-1' } }])
 
     // update çağrıları: APPROVED→COMPLETED + callbackStatus='sent'
     expect(mockUpdate).toHaveBeenCalledTimes(2)
@@ -118,7 +119,7 @@ describe('callbackRetry', () => {
       text:   vi.fn().mockResolvedValue('ok'),
     })
 
-    await callbackRetry({ data: { transactionId: 'tx-1' } })
+    await callbackRetry([{ data: { transactionId: 'tx-1' } }])
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(mockInsert).toHaveBeenCalledTimes(1)
@@ -141,7 +142,7 @@ describe('callbackRetry', () => {
       text:   vi.fn().mockResolvedValue('Internal Server Error'),
     })
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).rejects.toThrow('Callback başarısız')
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).rejects.toThrow('Callback başarısız')
 
     expect(mockInsert).toHaveBeenCalledTimes(1)
     expect(mockUpdate).not.toHaveBeenCalled()
@@ -158,7 +159,7 @@ describe('callbackRetry', () => {
     abortError.name = 'AbortError'
     mockFetch.mockRejectedValue(abortError)
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).rejects.toThrow('Callback başarısız')
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).rejects.toThrow('Callback başarısız')
 
     expect(mockInsert).toHaveBeenCalledTimes(1)
     // Log kaydında errorMessage = 'HTTP timeout (10s)' olmalı
@@ -171,7 +172,7 @@ describe('callbackRetry', () => {
     const tx = makeTx({ merchant: { id: 'merchant-1', webhookUrl: null, callbackSecret: 'secret' } })
     mockFindFirst.mockResolvedValue(tx)
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).resolves.not.toThrow()
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).resolves.not.toThrow()
 
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
@@ -181,7 +182,7 @@ describe('callbackRetry', () => {
     const tx = makeTx({ merchant: { id: 'merchant-1', webhookUrl: 'https://example.com/wh', callbackSecret: null } })
     mockFindFirst.mockResolvedValue(tx)
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).resolves.not.toThrow()
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).resolves.not.toThrow()
 
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
@@ -200,7 +201,7 @@ describe('callbackRetry', () => {
       text:   vi.fn().mockResolvedValue('Service Unavailable'),
     })
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).resolves.not.toThrow()
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).resolves.not.toThrow()
 
     expect(mockInsert).toHaveBeenCalledTimes(1)
     expect(mockUpdate).toHaveBeenCalledTimes(1)
@@ -215,7 +216,7 @@ describe('callbackRetry', () => {
     const tx = makeTx({ status: 'PENDING' })
     mockFindFirst.mockResolvedValue(tx)
 
-    await expect(callbackRetry({ data: { transactionId: 'tx-1' } })).resolves.not.toThrow()
+    await expect(callbackRetry([{ data: { transactionId: 'tx-1' } }])).resolves.not.toThrow()
 
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockInsert).not.toHaveBeenCalled()
@@ -233,12 +234,61 @@ describe('callbackRetry', () => {
       text:   vi.fn().mockResolvedValue('ok'),
     })
 
-    await callbackRetry({ data: { transactionId: 'tx-1' } })
+    await callbackRetry([{ data: { transactionId: 'tx-1' } }])
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const fetchArgs = mockFetch.mock.calls[0]
     const headers = fetchArgs[1].headers
     expect(headers['X-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/)
     expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  describe('callback adresi', () => {
+    const PAYOUT_URL = 'https://payments1.bcapps.net/Bets/PaymentsCallback/KiPayPG/PayOut.php'
+
+    function arrangeSuccess(tx: unknown) {
+      mockFindFirst.mockResolvedValue(tx)
+      mockFindMany.mockResolvedValue([])
+      mockUpdate.mockReturnValue(makeUpdateChain([]))
+      mockInsert.mockReturnValue(makeInsertChain())
+      mockFetch.mockResolvedValue({
+        status: 200,
+        ok:     true,
+        text:   vi.fn().mockResolvedValue('ok'),
+      })
+    }
+
+    it('withdrawal callback\'i merchant webhookUrl yerine PAYOUT_WEBHOOK_URL\'e gider', async () => {
+      arrangeSuccess(makeTx({ type: 'withdrawal' }))
+
+      await callbackRetry([{ data: { transactionId: 'tx-1' } }])
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch.mock.calls[0]![0]).toBe(PAYOUT_URL)
+      // Aynı HMAC imza başlığı ve payload tipi korunur
+      expect(mockFetch.mock.calls[0]![1].headers['X-Signature']).toMatch(/^sha256=[0-9a-f]{64}$/)
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body).type).toBe('withdrawal')
+    })
+
+    it('deposit callback\'i merchant webhookUrl\'ine gitmeye devam eder', async () => {
+      arrangeSuccess(makeTx({ type: 'deposit' }))
+
+      await callbackRetry([{ data: { transactionId: 'tx-1' } }])
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch.mock.calls[0]![0]).toBe('https://example.com/webhook')
+    })
+
+    it('withdrawal için callbackSecret yoksa callback failed olur, istek atılmaz', async () => {
+      arrangeSuccess(makeTx({
+        type: 'withdrawal',
+        merchant: { id: 'merchant-1', status: 'active', webhookUrl: 'https://example.com/webhook', callbackSecret: null },
+      }))
+
+      await callbackRetry([{ data: { transactionId: 'tx-1' } }])
+
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(mockUpdate.mock.results[0]!.value.set.mock.calls[0][0].callbackStatus).toBe('failed')
+    })
   })
 })

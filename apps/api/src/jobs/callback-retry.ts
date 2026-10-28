@@ -70,7 +70,9 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   // 4. Merchant ve callbackSecret kontrolü
   const merchant = freshTx.merchant
   console.log(`[callback-retry] merchant check: webhookUrl=${merchant?.webhookUrl ?? 'null'} hasSecret=${!!merchant?.callbackSecret} status=${merchant?.status}`)
-  if (!merchant?.webhookUrl || !merchant?.callbackSecret) {
+  // Çekim callback'leri tüm merchant'lar için ortak PAYOUT_WEBHOOK_URL'e gider
+  const callbackUrl = freshTx.type === 'withdrawal' ? env.PAYOUT_WEBHOOK_URL : merchant?.webhookUrl
+  if (!callbackUrl || !merchant?.callbackSecret) {
     console.warn(`[callback-retry] ${transactionId}: webhookUrl veya callbackSecret eksik — callback failed`)
     await db.update(transactions).set({ callbackStatus: 'failed', updatedAt: new Date() }).where(eq(transactions.id, transactionId))
     return
@@ -89,7 +91,7 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   console.log(`[callback-retry] NODE_ENV=${env.NODE_ENV} isDev=${isDev}`)
   let webhookHostname: string
   try {
-    const parsed = new URL(merchant.webhookUrl)
+    const parsed = new URL(callbackUrl)
     console.log(`[callback-retry] URL parse OK protocol=${parsed.protocol} hostname=${parsed.hostname}`)
     if (!isDev && parsed.protocol !== 'https:') {
       console.warn(`[callback-retry] ${transactionId}: webhookUrl HTTPS değil — callback failed`)
@@ -163,7 +165,7 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   const payload   = { ...basePayload, signature }
   const rawBody   = JSON.stringify(payload)
 
-  console.log(`[callback-retry] HTTP POST gönderiliyor → ${merchant.webhookUrl} (deneme #${attemptNumber})`)
+  console.log(`[callback-retry] HTTP POST gönderiliyor → ${callbackUrl} (deneme #${attemptNumber})`)
 
   // 8. HTTP POST — 10 saniye timeout
   const controller = new AbortController()
@@ -175,7 +177,7 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   let errorMessage:  string | null = null
 
   try {
-    const response = await fetch(merchant.webhookUrl, {
+    const response = await fetch(callbackUrl, {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',

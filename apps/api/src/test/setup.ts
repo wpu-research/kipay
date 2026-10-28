@@ -7,3 +7,4 @@ process.env['TOTP_ENCRYPTION_KEY'] = '000000000000000000000000000000000000000000
 process.env['PORT'] = '3001';
 process.env['NODE_ENV'] = 'test';
 process.env['FRONTEND_URL'] = 'http://localhost:3001';
+process.env['MERCHANT_SECRET_ENC_KEY'] = 'test-merchant-secret-enc-key-minimum-32-chars';
