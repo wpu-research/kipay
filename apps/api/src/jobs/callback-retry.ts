@@ -173,6 +173,7 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
 
   let responseStatus: number | null = null
   let responseBody:   string | null = null
+  let responseHeaders = ''
   let success        = false
   let errorMessage:  string | null = null
 
@@ -188,6 +189,7 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
     })
 
     responseStatus = response.status
+    responseHeaders = JSON.stringify(Object.fromEntries(response.headers ?? []))
     const raw      = await response.text()
     responseBody   = raw.slice(0, 500)
     success        = response.ok
@@ -200,8 +202,10 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   }
 
   console.log(`[callback-retry] HTTP POST sonuç: status=${responseStatus} success=${success} error=${errorMessage ?? 'none'}`)
-  if (!success && responseBody) {
-    console.log(`[callback-retry] ${transactionId} cevap gövdesi: ${responseBody.replace(/\s+/g, ' ')}`)
+  if (!success && responseStatus !== null) {
+    console.log(`[callback-retry] ${transactionId} cevap gövdesi: ${(responseBody ?? '').replace(/\s+/g, ' ')}`)
+    console.log(`[callback-retry] ${transactionId} giden istek: POST ${callbackUrl} headers={"Content-Type":"application/json","X-Signature":"sha256=<gizli>"} body=${JSON.stringify(basePayload)} + signature alanı`)
+    console.log(`[callback-retry] ${transactionId} cevap headers: ${responseHeaders}`)
   }
 
   // 9. Denemeyi logla
