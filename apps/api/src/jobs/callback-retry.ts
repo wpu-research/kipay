@@ -200,6 +200,9 @@ export async function callbackRetry(jobs: Array<{ data: { transactionId: string;
   }
 
   console.log(`[callback-retry] HTTP POST sonuç: status=${responseStatus} success=${success} error=${errorMessage ?? 'none'}`)
+  if (!success && responseBody) {
+    console.log(`[callback-retry] ${transactionId} cevap gövdesi: ${responseBody.replace(/\s+/g, ' ')}`)
+  }
 
   // 9. Denemeyi logla
   await db.insert(callbackLogs).values({
